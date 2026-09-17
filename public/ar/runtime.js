@@ -68,7 +68,8 @@
         if (stopped) return;
         const mesh = model.getObject3D('mesh');
         const THREE = AFRAME.THREE;
-        const box = new THREE.Box3().setFromObject(mesh);
+        // Measure in model space, before the marker and table rotation are applied.
+        const box = new THREE.Box3().setFromObject(mesh.clone(true));
         const size = box.getSize(new THREE.Vector3());
         const extent = Math.max(size.x, size.y, size.z);
         if (!Number.isFinite(extent) || extent <= 0) { fail('This model has no visible geometry.'); return; }
