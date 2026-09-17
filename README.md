@@ -72,3 +72,28 @@ npm run start
 │   └── types/           # TypeScript data interfaces
 └── tailwind.config.ts   # Design tokens, radii, and custom soft shadows
 ```
+
+
+## Marker AR testing
+
+1. Open `/menu/dinevista-lounge` on an HTTPS deployment in Android Chrome or iPhone Safari.
+2. Select **Place on Table**, download the displayed marker and print it without cropping.
+3. Lay the marker flat, select **Start Camera AR**, allow camera access and point at the marker.
+4. Keep the marker visible. Pinch to resize; drag to rotate. Use **3D Preview** without a camera.
+5. Leave AR or switch modes to release the camera. Return from a hidden tab using Retry.
+
+The QR only opens the menu. `/ar/marker.png` and `/ar/targets.mind` are a matched pair
+from the MindAR v1.2.2 card-example (https://github.com/hiukim/mind-ar-js, MIT).
+Replace BOTH together when compiling a custom restaurant target; changing a QR alone
+cannot change the image recognized by the tracker.
+
+The AR engine is isolated in `/public/ar/index.html`; it does not enter the React/SSR
+runtime. GLBs are fitted relative to marker width, not calibrated to actual portion
+size. The seeded URLs include demonstration objects (boombox, duck, avocado), not
+photorealistic models of those dishes. Upload real food GLBs to replace them.
+
+Camera AR depends on HTTPS, camera permission, WebGL, lighting and device performance;
+it does not need ARCore, but support on every phone is not guaranteed. Test physical
+tracking on real phones before deploying to restaurant tables.
+
+Verification: `npm run build` and `node --test tests/gesture-handler.test.cjs`.

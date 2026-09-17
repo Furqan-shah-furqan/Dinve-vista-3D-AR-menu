@@ -163,7 +163,7 @@ export const api = {
   async getRestaurant(identifier: string = 'dinevista-lounge'): Promise<Restaurant> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const query = identifier.startsWith('rest-')
+        const query = (identifier.startsWith('rest-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier))
           ? supabase.from('restaurants').select('*').eq('id', identifier)
           : supabase.from('restaurants').select('*').eq('slug', identifier);
 

@@ -309,7 +309,7 @@ export default function RestaurantAdminPage() {
                     Restaurant Table QR Marker
                   </h2>
                   <p className="text-xs text-slate-600 dark:text-slate-400 font-body leading-relaxed mt-1">
-                    Place this high-contrast QR code on each dining table. Patrons simply scan it with any smartphone camera to open the 3D menu and project dishes in WebAR with MindAR.
+                    Scan the QR to open the menu. Print the separate tracking image below, lay it flat on the table, and keep it in the camera view during AR.
                   </p>
                 </div>
 
@@ -329,7 +329,7 @@ export default function RestaurantAdminPage() {
                   className="w-full py-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-heading font-extrabold text-xs rounded-2xl shadow-glow transition-all duration-300 ease-in-out hover:scale-102 border-none flex items-center justify-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Table Standee</span>
+                  <span>Print QR Code & Tracking Image</span>
                 </button>
               </div>
             </div>
@@ -344,6 +344,11 @@ export default function RestaurantAdminPage() {
                   </span>
                 </div>
 
+                <div className="w-full bg-white p-3 shadow-soft rounded-custom-mobile">
+                  <Image src="/ar/marker.png" alt="Print this exact image for AR tracking" width={600} height={332} className="w-full h-auto" />
+                  <p className="text-slate-900 text-xs mt-2">AR tracking image — lay flat, do not crop</p>
+                  <a href="/ar/marker.png" download="dinevista-ar-marker.png" className="inline-block mt-2 text-purple-700 text-sm">Download tracking image</a>
+                </div>
                 {/* QR Code Container with 10px padding and darker shadow */}
                 <div className="p-[10px] bg-white rounded-3xl shadow-darker my-auto">
                   <QRCodeSVG
@@ -359,7 +364,7 @@ export default function RestaurantAdminPage() {
                     Scan to View 3D Menu
                   </h3>
                   <p className="text-[11px] text-purple-200 font-body mt-1 max-w-xs">
-                    Point your camera to project gourmet dishes in real scale onto your table
+                    Scan to browse, then tap Place on Table and point at the tracking image.
                   </p>
                 </div>
               </div>
