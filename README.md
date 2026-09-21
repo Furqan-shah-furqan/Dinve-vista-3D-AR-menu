@@ -77,13 +77,13 @@ npm run start
 ## Marker AR testing
 
 1. Open `/menu/dinevista-lounge` on an HTTPS deployment in Android Chrome or iPhone Safari.
-2. Select **Place on Table**, download the displayed marker and print it without cropping.
-3. Lay the marker flat, select **Start Camera AR**, allow camera access and point at the marker.
+2. Select **Place on Table** and open the displayed cloth photo on another screen, or print it without cropping.
+3. Select **Start Camera AR**, allow camera access and point at the entire cloth photo.
 4. Keep the marker visible. Pinch to resize; drag to rotate. Use **3D Preview** without a camera.
 5. Leave AR or switch modes to release the camera. Return from a hidden tab using Retry.
 
-The QR only opens the menu. `/ar/marker.png` and `/ar/targets.mind` are a matched pair
-from the MindAR v1.2.2 card-example (https://github.com/hiukim/mind-ar-js, MIT).
+The QR only opens the menu. `/ar/marker.jpg` and `/ar/targets.mind` are a matched pair
+compiled from the cloth demo photo with MindAR v1.2.5 (https://github.com/hiukim/mind-ar-js, MIT).
 Replace BOTH together when compiling a custom restaurant target; changing a QR alone
 cannot change the image recognized by the tracker.
 

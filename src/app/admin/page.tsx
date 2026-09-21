@@ -345,9 +345,9 @@ export default function RestaurantAdminPage() {
                 </div>
 
                 <div className="w-full bg-white p-3 shadow-soft rounded-custom-mobile">
-                  <Image src="/ar/marker.png" alt="Print this exact image for AR tracking" width={600} height={332} className="w-full h-auto" />
-                  <p className="text-slate-900 text-xs mt-2">AR tracking image — lay flat, do not crop</p>
-                  <a href="/ar/marker.png" download="dinevista-ar-marker.png" className="inline-block mt-2 text-purple-700 text-sm">Download tracking image</a>
+                  <Image src="/ar/marker.jpg" alt="Cloth photo used for AR demo tracking" width={702} height={1600} className="w-full h-auto" />
+                  <p className="text-slate-900 text-xs mt-2">Demo tracking photo — show or print the full image without cropping</p>
+                  <a href="/ar/marker.jpg" download="dinevista-cloth-ar-marker.jpg" className="inline-block mt-2 text-purple-700 text-sm">Download demo marker</a>
                 </div>
                 {/* QR Code Container with 10px padding and darker shadow */}
                 <div className="p-[10px] bg-white rounded-3xl shadow-darker my-auto">

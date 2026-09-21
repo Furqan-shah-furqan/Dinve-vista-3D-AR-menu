@@ -79,9 +79,9 @@ function ARViewContent() {
       </aside>}
       {(mode === 'intro' || error) && <section className="relative z-20 mx-auto max-w-lg p-6 pb-12 text-center">
         <h1 className="font-heading text-3xl font-bold mb-3">{dishName}</h1>
-        <p className="text-slate-300 mb-5">Print this tracking image and lay it flat on your table. Keep it visible to the camera while viewing the dish.</p>
-        <Image src="/ar/marker.png" alt="MindAR tracking card — print this exact image without cropping" width={600} height={332} className="w-full h-auto shadow-soft" />
-        <a className={`${button} inline-block my-4`} href="/ar/marker.png" download="dinevista-ar-marker.png">Download Marker</a>
+        <p className="text-slate-300 mb-5">For this demo, show this exact cloth photo on another screen or print it without cropping. Keep the whole image visible to the camera while viewing the dish.</p>
+        <Image src="/ar/marker.jpg" alt="Cloth photo used as the MindAR demo tracking image" width={702} height={1600} className="w-full h-auto shadow-soft" priority />
+        <a className={`${button} inline-block my-4`} href="/ar/marker.jpg" download="dinevista-cloth-ar-marker.jpg">Download Demo Marker</a>
         <p className="text-sm text-slate-300 mb-4">The menu QR opens the website. This separate image anchors the 3D model.</p>
         {isSample && <p className="text-amber-200 text-sm mb-4">This dish currently uses a sample model. Upload its real food GLB in the dashboard to show the correct dish.</p>}
         {!validModel && <p role="alert" className="text-amber-200 mb-4">No valid 3D model is attached. Add a public GLB URL in the dashboard.</p>}
