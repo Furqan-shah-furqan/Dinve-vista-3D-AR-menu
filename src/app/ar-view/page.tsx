@@ -20,6 +20,16 @@ function ARViewContent() {
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState(100);
   const [attempt, setAttempt] = useState(0);
+  const [cameraBlock, setCameraBlock] = useState('');
+  const [insecure, setInsecure] = useState(false);
+  useEffect(() => {
+    if (!window.isSecureContext) {
+      setInsecure(true);
+      setCameraBlock('Camera blocked: this page is using an insecure HTTP address. A phone opening your PC at 192.168.x.x cannot use the camera here. Open the HTTPS live app below instead. This is not a 3D model or ARCore error.');
+    } else if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraBlock('Camera access is unavailable in this browser. Open this page directly in Chrome on Android or Safari on iPhone, outside any in-app browser. You can still use 3D Preview.');
+    }
+  }, []);
   const validModel = /^(https?:\/\/|blob:|data:(application\/octet-stream|model\/gltf-binary)[;,]|\/(?!\/))/i.test(modelUrl);
   const isSample = modelUrl.includes('glTF-Sample-Models');
 
@@ -43,6 +53,10 @@ function ARViewContent() {
   }, [mode, modelUrl, attempt]);
 
   const start = () => {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setError(cameraBlock || 'Camera access needs a secure HTTPS page and a camera-enabled browser.');
+      return;
+    }
     setError(''); setZoom(100); setStatus('Loading AR engine and model…');
     setAttempt(value => value + 1); setMode('ar');
   };
@@ -57,6 +71,12 @@ function ARViewContent() {
           {mode !== 'intro' && <button className={button} onClick={() => { setMode('intro'); setError(''); }}>Marker & Help</button>}
         </div>
       </header>
+      {cameraBlock && <aside role="alert" className="relative z-20 mx-auto max-w-lg p-5 m-4 bg-amber-950 text-amber-100 shadow-soft border-none rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop">
+        <h2 className="font-heading font-bold mb-2">{insecure ? 'Use HTTPS for phone AR' : 'Camera unavailable'}</h2>
+        <p className="text-sm">{cameraBlock}</p>
+        {insecure && <a href="https://dinve-vista-3-d-ar-menu.vercel.app/menu/dinevista-lounge" className={`${button} inline-block mt-3 bg-purple-600 text-white`}>Open HTTPS Live Menu</a>}
+        <p className="text-xs mt-3">Local demo uploads are stored only in this browser and will not transfer to the live site. For shared models, configure Supabase Storage.</p>
+      </aside>}
       {(mode === 'intro' || error) && <section className="relative z-20 mx-auto max-w-lg p-6 pb-12 text-center">
         <h1 className="font-heading text-3xl font-bold mb-3">{dishName}</h1>
         <p className="text-slate-300 mb-5">Print this tracking image and lay it flat on your table. Keep it visible to the camera while viewing the dish.</p>
@@ -66,7 +86,7 @@ function ARViewContent() {
         {isSample && <p className="text-amber-200 text-sm mb-4">This dish currently uses a sample model. Upload its real food GLB in the dashboard to show the correct dish.</p>}
         {!validModel && <p role="alert" className="text-amber-200 mb-4">No valid 3D model is attached. Add a public GLB URL in the dashboard.</p>}
         {error && <p role="alert" className="bg-rose-950 p-4 rounded-custom-mobile mb-4">{error}</p>}
-        <button disabled={!validModel} className={`${button} bg-purple-600 disabled:opacity-40 w-full`} onClick={start}>{error ? 'Retry Camera AR' : 'Start Camera AR'}</button>
+        <button disabled={!validModel || Boolean(cameraBlock)} className={`${button} bg-purple-600 disabled:opacity-40 w-full`} onClick={start}>{cameraBlock ? 'Camera AR unavailable here' : error ? 'Retry Camera AR' : 'Start Camera AR'}</button>
       </section>}
       {mode === 'preview' && <section className="mx-auto max-w-3xl p-4">
         <h1 className="font-heading text-2xl text-center">{dishName}</h1>
