@@ -32,6 +32,7 @@ function ARViewContent() {
   }, []);
   const validModel = /^(https?:\/\/|blob:|data:(application\/octet-stream|model\/gltf-binary)[;,]|\/(?!\/))/i.test(modelUrl);
   const isSample = modelUrl.includes('glTF-Sample-Models');
+  const isDemo = modelUrl.startsWith('/models/demo/');
 
   useEffect(() => {
     if (mode !== 'ar') return;
@@ -79,6 +80,7 @@ function ARViewContent() {
       </aside>}
       {(mode === 'intro' || error) && <section className="relative z-20 mx-auto max-w-lg p-6 pb-12 text-center">
         <h1 className="font-heading text-3xl font-bold mb-3">{dishName}</h1>
+        {isDemo && <p className="text-sm text-amber-200 mb-3">Stylized demo food model — appearance and portion size are approximate.</p>}
         <p className="text-slate-300 mb-5">For this demo, show this exact cloth photo on another screen or print it without cropping. Keep the whole image visible to the camera while viewing the dish.</p>
         <Image src="/ar/marker.jpg" alt="Cloth photo used as the MindAR demo tracking image" width={702} height={1600} className="w-full h-auto shadow-soft" priority />
         <a className={`${button} inline-block my-4`} href="/ar/marker.jpg" download="dinevista-cloth-ar-marker.jpg">Download Demo Marker</a>
@@ -90,6 +92,7 @@ function ARViewContent() {
       </section>}
       {mode === 'preview' && <section className="mx-auto max-w-3xl p-4">
         <h1 className="font-heading text-2xl text-center">{dishName}</h1>
+        {isDemo && <p className="text-sm text-amber-200 text-center mt-2">Stylized demo food model — approximate appearance.</p>}
         {isSample && <p className="text-amber-200 text-center text-sm mt-2">Sample model — replace it with this dish’s food GLB in the dashboard.</p>}
         <div className="h-[65dvh]"><ThreeModelViewer modelUrl={validModel ? modelUrl : undefined} dishName={dishName} /></div>
         <button disabled={!validModel} className={`${button} block mx-auto bg-purple-600 disabled:opacity-40`} onClick={() => setMode('intro')}>Place on Table</button>

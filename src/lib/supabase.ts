@@ -66,7 +66,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Dry-aged Angus beef patties, molten Gruyère cheese, caramelized balsamic shallots, and black truffle garlic aioli on a toasted brioche bun.',
     price: 14.99,
     image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb',
+    glb_model_url: '/models/demo/burger.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
   },
   {
@@ -76,7 +76,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Decadent strawberry gelato spun with Madagascar vanilla milk, topped with cloud-whipped foam, ruby strawberry syrup, and fresh berry crunch.',
     price: 7.95,
     image_url: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
+    glb_model_url: '/models/demo/shake.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
   },
   {
@@ -86,7 +86,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: '18-hour slow-simmered rich pork bone broth with handmade ramen noodles, slow-braised chashu pork belly, ajitsuke tamago egg, chili oil, and nori.',
     price: 16.50,
     image_url: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF-Binary/Avocado.glb',
+    glb_model_url: '/models/demo/ramen.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
   },
   {
@@ -96,7 +96,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: '48-hour fermented sourdough crust, San Marzano tomato reduction, whole creamy Italian burrata, fresh basil, and shaved black truffles with olive oil.',
     price: 18.90,
     image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb',
+    glb_model_url: '/models/demo/pizza.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(),
   },
   {
@@ -106,7 +106,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Jumbo tiger prawns encased in ultra-light golden panko tempura, paired with sweet yuzu dipping glaze, wasabi mayo, and pickled daikon slaw.',
     price: 15.75,
     image_url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
+    glb_model_url: '/models/demo/tempura.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
   },
   {
@@ -116,7 +116,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Honeycomb laminated French butter pastry piped with Sicilian roasted pistachio cream, topped with chopped Bronte pistachios and golden flakes.',
     price: 6.80,
     image_url: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF-Binary/Avocado.glb',
+    glb_model_url: '/models/demo/croissant.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
   },
   {
@@ -126,7 +126,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'USDA Prime 14oz center-cut ribeye steak char-grilled with smoked sea salt, rosemary-infused confit garlic butter, and roasted asparagus.',
     price: 28.50,
     image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb',
+    glb_model_url: '/models/demo/steak.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
   {
@@ -136,7 +136,7 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Fresh grilled freshwater eel, crispy tempura cucumber, layered with Hass avocado slices, sweet kabayaki unagi reduction, and roasted sesame.',
     price: 16.90,
     image_url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
+    glb_model_url: '/models/demo/sushi.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
   },
   {
@@ -146,10 +146,19 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     description: 'Warm dark chocolate sponge cake with an oozing liquid Uji matcha white chocolate molten center, dusted with powdered sugar and berries.',
     price: 8.50,
     image_url: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=800&auto=format&fit=crop&q=80',
-    glb_model_url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Avocado/glTF-Binary/Avocado.glb',
+    glb_model_url: '/models/demo/cake.glb',
     created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
   },
 ];
+
+// Upgrade only known demo placeholders; keep custom models and user edits.
+export function migrateDemoModels(items: MenuItem[]): MenuItem[] {
+  return items.map(item => {
+    const seed = INITIAL_MENU_ITEMS.find(dish => dish.id === item.id && dish.name === item.name);
+    return seed && (item.glb_model_url || '').startsWith('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/')
+      ? { ...item, glb_model_url: seed.glb_model_url } : item;
+  });
+}
 
 const LOCAL_STORAGE_KEY_MENU = 'dinevista_menu_items_v6';
 const LOCAL_STORAGE_KEY_REST = 'dinevista_restaurant_v6';
@@ -195,7 +204,7 @@ export const api = {
           .eq('restaurant_id', restaurantId)
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) return data as MenuItem[];
+        if (!error && data && data.length > 0) return migrateDemoModels(data as MenuItem[]);
       } catch (err) {
         console.warn('Supabase menu_items fetch failed, using local store:', err);
       }
@@ -207,7 +216,11 @@ export const api = {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const migrated = migrateDemoModels(parsed);
+          localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(migrated));
+          return migrated;
+        }
       } catch {}
     }
 

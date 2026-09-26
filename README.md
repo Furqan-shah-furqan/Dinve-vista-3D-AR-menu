@@ -89,8 +89,10 @@ cannot change the image recognized by the tracker.
 
 The AR engine is isolated in `/public/ar/index.html`; it does not enter the React/SSR
 runtime. GLBs are fitted relative to marker width, not calibrated to actual portion
-size. The seeded URLs include demonstration objects (boombox, duck, avocado), not
-photorealistic models of those dishes. Upload real food GLBs to replace them.
+size. The nine seeded dishes use original, stylized food GLBs in
+`public/models/demo`. These approximate each dish; they are not photorealistic
+scans. Regenerate them with `node scripts/generate-demo-food.mjs`.
+Known saved demo placeholders are upgraded without replacing custom uploads.
 
 Camera AR depends on HTTPS, camera permission, WebGL, lighting and device performance;
 it does not need ARCore, but support on every phone is not guaranteed. Test physical
