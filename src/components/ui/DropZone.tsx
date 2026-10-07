@@ -28,10 +28,13 @@ export function DropZone({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentValue || null);
+  const [fileName, setFileName] = useState('');
+  const uploading = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    if (isUploading) return;
+    if (uploading.current) return;
+    uploading.current = true;
     setError(null);
     setIsUploading(true);
     onBusy?.(true);
@@ -41,11 +44,13 @@ export function DropZone({
       const bucket = type === 'image' ? STORAGE_BUCKET_IMAGES : STORAGE_BUCKET_MODELS;
       const uploadedUrl = await api.uploadFile(file, bucket);
       setPreviewUrl(uploadedUrl);
+      setFileName(`${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`);
       onUploaded(uploadedUrl);
     } catch (err: any) {
       setError(err?.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
+      uploading.current = false;
       onBusy?.(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -65,7 +70,7 @@ export function DropZone({
         <label className="text-[11px] font-heading font-bold text-slate-800 dark:text-slate-200">
           {label}
         </label>
-        {previewUrl && (
+        {previewUrl && !isUploading && !error && (
           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" /> Ready
           </span>
@@ -97,6 +102,7 @@ export function DropZone({
           type="file"
           accept={accept}
           className="hidden"
+          onClick={(event) => event.stopPropagation()}
           onChange={(e) => {
             if (e.target.files && e.target.files[0]) {
               handleFile(e.target.files[0]);
@@ -107,29 +113,29 @@ export function DropZone({
         {isUploading ? (
           <div className="flex flex-col items-center gap-1 text-purple-600 dark:text-purple-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-[11px] font-bold">Uploading file...</span>
+            <span role="status" className="text-[11px] font-bold">Saving attachment…</span>
           </div>
         ) : previewUrl ? (
           <div className="flex items-center gap-3 w-full p-1">
             {type === 'image' ? (
-              <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-darker border-none shrink-0">
+              <div className="relative w-[73px] h-[73px] rounded-2xl overflow-hidden shadow-darker border-none shrink-0">
                 <Image
                   src={previewUrl}
                   alt="Upload Preview"
                   fill
                   unoptimized
-                  sizes="48px"
+                  sizes="73px"
                   className="object-cover rounded-2xl"
                 />
               </div>
             ) : (
-              <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-darker border-none shrink-0">
-                <Box className="w-6 h-6 animate-pulse" />
+              <div className="w-[73px] h-[73px] rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-darker border-none shrink-0">
+                <Box className="w-8 h-8" />
               </div>
             )}
             <div className="flex-1 min-w-0">
               <span className="text-xs font-heading font-extrabold text-slate-900 dark:text-white block truncate">
-                {type === 'image' ? 'Image Attached' : '3D Model Attached'}
+                {fileName || (type === 'image' ? 'Image Attached' : '3D Model Attached')}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
                 Click or drop to replace
@@ -155,9 +161,9 @@ export function DropZone({
         )}
 
         {error && (
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-red-500 font-semibold">
+          <div role="alert" className="mt-1 flex items-start gap-1 text-[11px] text-red-500 font-semibold">
             <AlertCircle className="w-3 h-3" />
-            <span>{error}</span>
+            <span>{error}{previewUrl ? ' Previous attachment kept.' : ''}</span>
           </div>
         )}
       </div>

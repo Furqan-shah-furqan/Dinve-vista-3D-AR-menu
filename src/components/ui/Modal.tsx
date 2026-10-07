@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MenuItem, isSupabaseConfigured } from '@/lib/supabase';
 import { MarkerPicker } from '@/components/admin/MarkerPicker';
 import { DropZone } from '@/components/ui/DropZone';
@@ -35,6 +35,18 @@ export function DishModal({
   const [pending, setPending] = useState({ image: false, model: false, marker: false });
   const [error, setError] = useState('');
   const busy = isSaving || Object.values(pending).some(Boolean);
+  const dialog = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const fit = () => {
+      if (dialog.current) setScale(Math.min(1, Math.max(1, (window.visualViewport?.height || window.innerHeight) - 24) / dialog.current.offsetHeight));
+    };
+    const observer = new ResizeObserver(fit);
+    if (dialog.current) observer.observe(dialog.current);
+    window.visualViewport?.addEventListener('resize', fit);
+    window.addEventListener('resize', fit); fit();
+    return () => { observer.disconnect(); window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit); };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -68,7 +80,7 @@ export function DishModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/75 backdrop-blur-sm">
       {/* Direct Seamless Dialog (No Separate Header/Footer Blocks, No Scrollbar, 10px Padding, Matching Theme) */}
-      <div role="dialog" aria-modal="true" aria-label={dish ? 'Edit dish' : 'Add new dish'} className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop shadow-darker border-none p-[10px] flex flex-col">
+      <div ref={dialog} style={{ transform: `scale(${scale})` }} role="dialog" aria-modal="true" aria-label={dish ? 'Edit dish' : 'Add new dish'} className="relative w-full max-w-[626px] shrink-0 overflow-hidden bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop shadow-darker border-none p-[10px] flex flex-col">
         {/* Compact Inline Header with Close Icon */}
         <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 rounded-2xl text-white shadow-soft">
           <div className="flex items-center gap-2">
@@ -88,7 +100,7 @@ export function DishModal({
         </div>
 
         {/* Compact Form Body (Entirely Visible On Screen - Zero Scrollbar) */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-3">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 p-3">
           {/* Row 1: Title & Price */}
           <div className="grid grid-cols-12 gap-2.5">
             <div className="col-span-8">

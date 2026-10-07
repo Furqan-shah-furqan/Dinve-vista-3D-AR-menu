@@ -347,7 +347,8 @@ export const api = {
 
     if (bucket !== STORAGE_BUCKET_IMAGES) {
       const key = `asset:${crypto.randomUUID()}`;
-      await localStore(key, file);
+      // Store a plain Blob: some browsers cannot clone native file-picker File objects.
+      await localStore(key, new Blob([file], { type: file.type || 'application/octet-stream' }));
       return `dinevista-${key}`;
     }
     return new Promise((resolve, reject) => {

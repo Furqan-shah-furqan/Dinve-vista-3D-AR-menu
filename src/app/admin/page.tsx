@@ -107,8 +107,8 @@ export default function RestaurantAdminPage() {
 
       {/* 2. Left Sidebar Navigation (Unified Preview Menu Purple/Cream Aesthetic) */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-gradient-to-b from-purple-950 via-slate-900 to-purple-950 text-white p-5 flex flex-col justify-between shadow-darker z-40 transition-transform duration-300 ease-in-out border-none ${
-          mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed md:sticky top-0 md:top-[15px] left-0 md:left-auto m-[15px] h-[calc(100dvh-30px)] w-64 shrink-0 rounded-[35px] bg-gradient-to-b from-purple-950 via-slate-900 to-purple-950 text-white p-5 flex flex-col justify-between shadow-darker z-40 transition-transform duration-300 ease-in-out border-none ${
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-[calc(100%+45px)] md:translate-x-0'
         }`}
       >
         <div className="flex flex-col gap-7">

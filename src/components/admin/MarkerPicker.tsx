@@ -45,11 +45,11 @@ export function MarkerPicker({ restaurantId, value, onChange, onBusy }: {
   return <section className="p-3 bg-purple-100/50 dark:bg-slate-800 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop border-none shadow-soft">
     <label htmlFor="dish-marker" className="block text-xs font-bold mb-2">3. AR marker — select an uploaded image</label>
     <div className="flex gap-2 items-center">
-      {selected && <Image src={selected.image_url} alt="Selected tracking marker" width={48} height={48} unoptimized className="object-contain h-12 w-12" />}
-      <select id="dish-marker" value={value} disabled={busy} onChange={event => onChange(event.target.value)} className="min-w-0 flex-1 p-3 bg-white dark:bg-slate-900 border-none rounded-custom-mobile shadow-soft text-xs">
+      {selected && <Image src={selected.image_url} alt="Selected tracking marker" width={44} height={44} unoptimized className="object-cover h-[44px] w-[44px] rounded-full shrink-0 shadow-soft" />}
+      <select id="dish-marker" value={value} disabled={busy} onChange={event => onChange(event.target.value)} className="min-w-0 h-[44px] flex-1 px-3 bg-white dark:bg-slate-900 border-none rounded-custom-mobile shadow-soft text-xs">
         {markers.map(marker => <option key={marker.id} value={marker.id}>{marker.name}</option>)}
       </select>
-      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="p-3 bg-purple-600 text-white border-none rounded-custom-mobile shadow-soft text-xs transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50">Add marker</button>
+      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="h-[44px] px-3 shrink-0 bg-purple-600 text-white border-none rounded-custom-mobile shadow-soft text-xs transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50">Add marker</button>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload marker image" className="hidden" onChange={event => { if (event.target.files?.[0]) void upload(event.target.files[0]); }} />
     </div>
     <p className="text-xs mt-2">Use a flat, detailed image. Compilation may take a few minutes. Print or display that exact image for tracking.</p>
