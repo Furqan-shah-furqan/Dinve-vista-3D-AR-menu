@@ -9,6 +9,7 @@ export interface Restaurant {
   id: string; // uuid
   name: string;
   slug: string;
+  owner_id?: string;
   qr_code_url?: string;
   created_at?: string;
 }
@@ -22,6 +23,7 @@ export interface MenuItem {
   image_url: string;
   glb_model_url: string;
   marker_id?: string | null;
+  legacy_id?: string | null;
   created_at?: string;
 }
 
@@ -30,7 +32,7 @@ export interface MenuItem {
 // ==============================================================================
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
@@ -173,11 +175,52 @@ const LOCAL_STORAGE_KEY_REST = 'dinevista_restaurant_v6';
 // ==============================================================================
 
 export const api = {
+  async getLocalDishes(): Promise<MenuItem[]> {
+    const saved = await localStore<MenuItem[]>(LOCAL_STORAGE_KEY_MENU);
+    if (saved) return saved;
+    try { return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_MENU) || '[]'); }
+    catch { return []; }
+  },
+  async importLocalDishes(restaurantId: string, onProgress: (message: string) => void): Promise<number> {
+    if (!supabase) throw new Error('Shared storage is not configured.');
+    const dishes = await this.getLocalDishes();
+    const uploaded = new Map<string, string>();
+    const transfer = async (url: string, bucket: string) => {
+      if (!url || (!url.startsWith('dinevista-asset:') && !url.startsWith('data:'))) return url;
+      if (uploaded.has(url)) return uploaded.get(url)!;
+      const blob = url.startsWith('data:') ? await (await fetch(url)).blob() : await localStore<Blob>(url.slice('dinevista-'.length));
+      if (!blob) throw new Error('A local attachment is missing. Re-upload that file before importing. Local dishes were kept.');
+      const ext = bucket === STORAGE_BUCKET_MODELS ? 'glb' : bucket === STORAGE_BUCKET_MARKERS ? 'mind' : blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+      const shared = await this.uploadFile(new File([blob], `import.${ext}`, { type: blob.type }), bucket);
+      uploaded.set(url, shared); return shared;
+    };
+    const markers = await localStore<ARMarker[]>('markers:rest-dinevista-001') || [];
+    for (const marker of markers) {
+      onProgress(`Uploading marker: ${marker.name}`);
+      const shared = { ...marker, restaurant_id: restaurantId, image_url: await transfer(marker.image_url, STORAGE_BUCKET_IMAGES), target_url: await transfer(marker.target_url, STORAGE_BUCKET_MARKERS) };
+      const { error } = await supabase.from('ar_markers').upsert(shared);
+      if (error) throw new Error(error.message);
+    }
+    // Upload every attachment before publishing rows. Failed imports leave the local copy intact.
+    const existing = await this.getMenuItems(restaurantId);
+    const sharedDishes = [];
+    for (const [index, dish] of dishes.entries()) {
+      onProgress(`Uploading ${index + 1}/${dishes.length}: ${dish.name}`);
+      const { id, created_at, ...fields } = dish;
+      sharedDishes.push({ ...fields, id: existing.find(item => item.legacy_id === id)?.id || crypto.randomUUID(), restaurant_id: restaurantId, legacy_id: id, marker_id: dish.marker_id === 'default' ? null : dish.marker_id || null, image_url: await transfer(dish.image_url, STORAGE_BUCKET_IMAGES), glb_model_url: await transfer(dish.glb_model_url, STORAGE_BUCKET_MODELS) });
+    }
+    if (sharedDishes.length) {
+      const { error } = await supabase.from('menu_items').upsert(sharedDishes, { onConflict: 'restaurant_id,legacy_id' });
+      if (error) throw new Error(error.message);
+    }
+    return sharedDishes.length;
+  },
   // Fetch Restaurant by ID or Slug
   async getRestaurant(identifier: string = 'dinevista-lounge'): Promise<Restaurant> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const query = (identifier.startsWith('rest-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier))
+        if (identifier === 'rest-dinevista-001' || identifier === 'dinevista-lounge') identifier = process.env.NEXT_PUBLIC_RESTAURANT_SLUG || 'dinevista-lounge';
+        const query = (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier))
           ? supabase.from('restaurants').select('*').eq('id', identifier)
           : supabase.from('restaurants').select('*').eq('slug', identifier);
 
@@ -202,6 +245,7 @@ export const api = {
 
   // Fetch all Menu Items for a restaurant
   async getMenuItems(restaurantId: string = 'rest-dinevista-001'): Promise<MenuItem[]> {
+    if (supabase && restaurantId === 'rest-dinevista-001') restaurantId = (await this.getRestaurant(restaurantId)).id;
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -318,7 +362,7 @@ export const api = {
   // Upload file to Supabase Storage Bucket ('menu-images' or 'menu-models')
   async uploadFile(file: File, bucket: string): Promise<string> {
     if (!file.size) throw new Error('File is empty.');
-    if (file.size > 100 * 1024 * 1024) throw new Error('File too large. Use a file under 100 MB.');
+    if (file.size > (supabase ? 50 : 100) * 1024 * 1024) throw new Error(`File too large. Use a file under ${supabase ? 50 : 100} MB.`);
     if (bucket === STORAGE_BUCKET_MODELS) {
       const header = new DataView(await file.slice(0, 12).arrayBuffer());
       if (!file.name.toLowerCase().endsWith('.glb') || header.byteLength < 12 || header.getUint32(0, true) !== 0x46546c67 || header.getUint32(4, true) !== 2 || header.getUint32(8, true) !== file.size) throw new Error('Choose a valid self-contained GLB 2.0 file, not GLTF.');
@@ -333,7 +377,7 @@ export const api = {
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(filePath, file, { cacheControl: '3600', upsert: true });
+          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: bucket === STORAGE_BUCKET_MODELS ? 'model/gltf-binary' : file.type || 'application/octet-stream' });
 
         if (uploadError) throw new Error(uploadError.message);
         if (!uploadError) {

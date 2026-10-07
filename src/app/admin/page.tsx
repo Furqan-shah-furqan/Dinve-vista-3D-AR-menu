@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
-import { MenuItem, Restaurant, api } from '@/lib/supabase';
+import { MenuItem, Restaurant, api, supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { DishModal } from '@/components/ui/Modal';
 import {
   UtensilsCrossed,
@@ -30,23 +30,65 @@ export default function RestaurantAdminPage() {
   const [editingDish, setEditingDish] = useState<MenuItem | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [localCount, setLocalCount] = useState(0);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importStatus, setImportStatus] = useState('');
 
   const loadData = async () => {
     try {
       const rest = await api.getRestaurant('dinevista-lounge');
-      setRestaurant(rest);
+      if (supabase) {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user || rest.owner_id !== data.user.id) throw new Error('Sign in with this restaurant owner account to manage dishes.');
+      }
+      setError(''); setRestaurant(rest);
       const items = await api.getMenuItems(rest.id);
       setMenuItems(items);
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Could not load shared menu.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => { setSignedIn(Boolean(data.session)); setAuthReady(true); });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setSignedIn(Boolean(session)); setAuthReady(true); });
+    api.getLocalDishes().then(items => setLocalCount(items.length)).catch(() => {});
+    return () => data.subscription.unsubscribe();
   }, []);
+  useEffect(() => {
+    if (authReady && (!isSupabaseConfigured || signedIn)) void loadData();
+    else if (authReady) { setRestaurant(null); setMenuItems([]); setLoading(false); }
+  }, [authReady, signedIn]);
+
+  const signIn = async (event: React.FormEvent) => {
+    event.preventDefault(); if (!supabase) return;
+    setAuthBusy(true); setError('');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      setPassword('');
+    } catch (err) { setError(err instanceof Error ? err.message : 'Sign-in failed.'); }
+    finally { setAuthBusy(false); }
+  };
+  const importDishes = async () => {
+    if (!restaurant || importBusy) return;
+    setImportBusy(true); setError('');
+    try {
+      const count = await api.importLocalDishes(restaurant.id, setImportStatus);
+      setImportStatus(`${count} dishes published to shared storage. Local copies kept.`);
+      await loadData(); setLocalCount(0);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Import failed. Local copies kept.'); }
+    finally { setImportBusy(false); }
+  };
 
   const handleCreateNew = () => {
     setEditingDish(null);
@@ -60,8 +102,8 @@ export default function RestaurantAdminPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to remove this dish from the menu?')) {
-      await api.deleteMenuItem(id, restaurant?.id);
-      await loadData();
+      try { await api.deleteMenuItem(id, restaurant?.id); await loadData(); }
+      catch (err) { setError(err instanceof Error ? err.message : 'Could not delete dish.'); }
     }
   };
 
@@ -83,6 +125,22 @@ export default function RestaurantAdminPage() {
   const menuUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/menu/${restaurant?.slug || 'dinevista-lounge'}`
     : `https://dinevista.app/menu/${restaurant?.slug || 'dinevista-lounge'}`;
+
+  if (isSupabaseConfigured && (!authReady || !signedIn || !restaurant)) return (
+    <main className="min-h-screen bg-[#faf7f2] dark:bg-slate-950 flex items-center justify-center p-6">
+      <form onSubmit={signIn} className="w-full max-w-md p-8 bg-white dark:bg-slate-900 rounded-[35px] border-none shadow-soft flex flex-col gap-4">
+        <h1 className="font-heading text-2xl font-bold">DineVista Admin</h1>
+        <p className="text-sm text-slate-500">Sign in with your existing Supabase restaurant owner account. Published dishes and uploads are shared across devices.</p>
+        {(!authReady || (signedIn && loading)) ? <p role="status">Loading shared menu…</p> : signedIn ? <button type="button" onClick={() => void supabase?.auth.signOut()} className="p-3 rounded-[25px] border-none bg-purple-600 text-white">Sign out and use the owner account</button> : <>
+          <label className="text-sm">Email<input type="email" required autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} className="block w-full mt-1 p-3 rounded-[25px] border-none bg-slate-100 dark:bg-slate-800" /></label>
+          <label className="text-sm">Password<input type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="block w-full mt-1 p-3 rounded-[25px] border-none bg-slate-100 dark:bg-slate-800" /></label>
+          <button disabled={authBusy} className="p-3 rounded-[25px] border-none bg-purple-600 text-white disabled:opacity-50">{authBusy ? 'Signing in…' : 'Sign in'}</button>
+        </>}
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
+        <Link href="/menu/dinevista-lounge" className="text-sm text-purple-600">View customer menu</Link>
+      </form>
+    </main>
+  );
 
   return (
     <div className="min-h-screen bg-[#faf7f2] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row selection:bg-purple-500 selection:text-white">
@@ -205,6 +263,13 @@ export default function RestaurantAdminPage() {
           )}
         </div>
 
+        {isSupabaseConfigured && <section className="p-4 rounded-[25px] bg-white dark:bg-slate-900 shadow-soft border-none flex flex-wrap items-center gap-3">
+          <p className="text-sm flex-1">Shared menu connected · {menuItems.length} dishes</p>
+          {localCount > 0 && <button disabled={importBusy} onClick={() => void importDishes()} className="px-4 py-2 rounded-[25px] bg-purple-600 text-white border-none disabled:opacity-50">{importBusy ? 'Importing…' : `Import ${localCount} laptop dishes & files`}</button>}
+          <button disabled={importBusy} onClick={() => void supabase?.auth.signOut()} className="px-4 py-2 rounded-[25px] bg-slate-100 dark:bg-slate-800 border-none">Sign out</button>
+          {importStatus && <p role="status" className="w-full text-sm">{importStatus}</p>}
+        </section>}
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         {/* TAB 1: MENU ITEMS CRUD */}
         {activeTab === 'menu' && (
           <div className="flex flex-col gap-5">

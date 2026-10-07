@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MenuItem, Restaurant, DEFAULT_RESTAURANT, INITIAL_MENU_ITEMS, api } from '@/lib/supabase';
+import { MenuItem, Restaurant, DEFAULT_RESTAURANT, INITIAL_MENU_ITEMS, api, isSupabaseConfigured } from '@/lib/supabase';
 import { FoodCard } from '@/components/ui/FoodCard';
 import { Sparkles, UtensilsCrossed, Box } from 'lucide-react';
 
@@ -12,20 +12,32 @@ export default function CustomerMenuPage() {
   const restaurantIdentifier = (params?.restaurant_id as string) || 'dinevista-lounge';
 
   const [restaurant, setRestaurant] = useState<Restaurant>(DEFAULT_RESTAURANT);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(isSupabaseConfigured ? [] : INITIAL_MENU_ITEMS);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
+    let running = false;
     async function loadData() {
+      if (running) return;
+      running = true;
       try {
         const rest = await api.getRestaurant(restaurantIdentifier);
-        if (rest) setRestaurant(rest);
+
         const items = await api.getMenuItems(rest.id);
-        if (items && items.length > 0) setMenuItems(items);
+        if (active) { setRestaurant(rest); setMenuItems(items); setError(''); }
       } catch (err) {
-        console.error('Failed to load menu:', err);
-      }
+        if (active) setError('Could not refresh the menu. Check your connection and retry.');
+      } finally { running = false; if (active) setLoading(false); }
     }
-    loadData();
+    const refresh = () => { if (!document.hidden) void loadData(); };
+    void loadData();
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [restaurantIdentifier]);
 
   return (
@@ -93,11 +105,12 @@ export default function CustomerMenuPage() {
           </div>
 
           <span className="text-xs font-extrabold text-purple-700 dark:text-purple-300 bg-purple-100/80 dark:bg-purple-950/60 px-4 py-1.5 rounded-full shadow-soft border-none">
-            {menuItems.length} Dishes
+            {loading ? 'Loading…' : `${menuItems.length} Dishes`}
           </span>
         </div>
 
-        {menuItems.length === 0 ? (
+        {error && <p role="alert" className="mb-6 text-red-500">{error}</p>}
+        {loading ? <p role="status">Loading shared menu…</p> : menuItems.length === 0 ? (
           <div className="p-16 rounded-custom-mobile md:rounded-custom-tablet bg-white dark:bg-slate-900 shadow-soft text-center flex flex-col items-center gap-3 border-none">
             <UtensilsCrossed className="w-12 h-12 text-purple-400" />
             <h3 className="font-heading font-bold text-lg text-slate-900 dark:text-white">

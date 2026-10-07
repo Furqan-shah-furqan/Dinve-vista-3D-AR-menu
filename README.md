@@ -114,11 +114,26 @@ Without Supabase, dishes and binary models persist in IndexedDB on the same
 browser/device. Do not clear site data if you want to keep them. Old localStorage
 dishes are migrated without deleting the old backup. Uploads never go in page URLs.
 
-For shared publishing, configure `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`, apply
-`supabase/migrations/20261007_dish_markers.sql` in your Supabase project, and use an
-authenticated restaurant-owner session with a real restaurant UUID. The current
-demo admin has no sign-in UI. Backend/RLS errors are shown, never silently saved as
-local-only success. Bucket file size settings must allow your GLB size (app limit 100 MB).
+Shared publishing uses `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy anon keys remain supported).
+`NEXT_PUBLIC_RESTAURANT_SLUG` identifies the existing restaurant; legacy links
+`/menu/rest-dinevista-001` and `/menu/dinevista-lounge` resolve to that same record.
+The deployed project uses the existing **3D menu Viewer** Supabase project.
+The additive `20261007171025_shared_menu_sync.sql` migration aligns its existing
+schema, grants public read access and enforces owner-only edits with RLS.
+Do not run the older standalone `schema.sql` over this existing project.
+
+Sign in at `/admin` using the existing Supabase restaurant-owner account.
+Use **Import laptop dishes & files** in the browser where demo uploads were saved.
+This uploads GLBs and marker targets to Storage and upserts dishes without
+creating repeat-import duplicates. It keeps local copies; missing attachments
+stop publication with an error. Importing replaces the shared version of those
+same dishes with the laptop version. Customer menus refresh every 15 seconds
+while visible and whenever the tab regains focus, including empty menus.
+Configured-backend errors never silently fall back to demo dishes.
+
+Shared GLB/marker uploads support up to 50 MB (the project storage limit);
+images support 10 MB. Unconfigured local demo GLBs support up to 100 MB.
+No service-role or secret keys are used in the browser or committed to GitHub.
 
 Verification: `npm run build` and `node --test tests/*.test.cjs`.
