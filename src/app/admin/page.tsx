@@ -263,7 +263,7 @@ export default function RestaurantAdminPage() {
                   {/* Actions Row */}
                   <div className="flex items-center justify-between pt-2 px-1 border-none">
                     <Link
-                      href={`/ar-view?modelUrl=${encodeURIComponent(dish.glb_model_url)}&restaurantId=${encodeURIComponent(restaurant?.id || 'rest-dinevista-001')}&dishName=${encodeURIComponent(dish.name)}`}
+                      href={`/ar-view?dishId=${encodeURIComponent(dish.id)}&restaurantId=${encodeURIComponent(dish.restaurant_id)}`}
                       target="_blank"
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white text-[11px] font-bold transition-all border-none"
                     >
@@ -373,13 +373,14 @@ export default function RestaurantAdminPage() {
         )}
 
         {/* Add / Edit Dish Modal */}
-        <DishModal
+        {isModalOpen && <DishModal
+          key={editingDish?.id || 'new'}
           dish={editingDish}
           restaurantId={restaurant?.id}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveDish}
-        />
+        />}
       </main>
     </div>
   );

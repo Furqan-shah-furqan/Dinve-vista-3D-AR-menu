@@ -23,7 +23,7 @@ export function FoodCard({ dish, restaurantId = 'rest-dinevista-001', index = 0 
   ];
   const gradientClass = bgGradients[index % bgGradients.length];
 
-  const arUrl = `/ar-view?modelUrl=${encodeURIComponent(dish.glb_model_url)}&restaurantId=${encodeURIComponent(restaurantId)}&dishName=${encodeURIComponent(dish.name)}`;
+  const arUrl = `/ar-view?dishId=${encodeURIComponent(dish.id)}&restaurantId=${encodeURIComponent(dish.restaurant_id)}`;
 
   return (
     <div

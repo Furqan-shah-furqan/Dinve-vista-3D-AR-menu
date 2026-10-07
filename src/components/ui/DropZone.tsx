@@ -12,6 +12,7 @@ interface DropZoneProps {
   currentValue?: string;
   onUploaded: (url: string) => void;
   helperText?: string;
+  onBusy?: (busy: boolean) => void;
 }
 
 export function DropZone({
@@ -21,6 +22,7 @@ export function DropZone({
   currentValue,
   onUploaded,
   helperText,
+  onBusy,
 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -29,10 +31,13 @@ export function DropZone({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
+    if (isUploading) return;
     setError(null);
     setIsUploading(true);
+    onBusy?.(true);
 
     try {
+      if (type === 'image' && !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPG, PNG or WebP image.');
       const bucket = type === 'image' ? STORAGE_BUCKET_IMAGES : STORAGE_BUCKET_MODELS;
       const uploadedUrl = await api.uploadFile(file, bucket);
       setPreviewUrl(uploadedUrl);
@@ -41,6 +46,8 @@ export function DropZone({
       setError(err?.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
+      onBusy?.(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -72,7 +79,11 @@ export function DropZone({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!isUploading) fileInputRef.current?.click(); } }}
+        onClick={() => { if (!isUploading) fileInputRef.current?.click(); }}
         className={`relative flex flex-col items-center justify-center p-[10px] rounded-custom-mobile transition-all duration-300 ease-in-out cursor-pointer select-none min-h-[95px] shadow-darker border-none ${
           isDragging
             ? 'bg-purple-100 dark:bg-purple-900/60 scale-102'

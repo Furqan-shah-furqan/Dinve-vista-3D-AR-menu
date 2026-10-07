@@ -24,7 +24,7 @@
     document.head.appendChild(el);
   });
 
-  async function start(modelUrl) {
+  async function start(modelUrl, targetUrl = '/ar/targets.mind') {
     if (initialized) return;
     initialized = true;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -40,7 +40,7 @@
       await script('/gesture-handler.js');
       if (stopped) return;
       scene = document.createElement('a-scene');
-      scene.setAttribute('mindar-image', 'imageTargetSrc: /ar/targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;');
+      scene.setAttribute('mindar-image', { imageTargetSrc: targetUrl, autoStart: false, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
       scene.setAttribute('renderer', 'alpha: true; antialias: false; colorManagement: true; physicallyCorrectLights: true;');
       scene.setAttribute('vr-mode-ui', 'enabled: false');
       scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
@@ -102,7 +102,7 @@
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== parent) return;
     if (event.data?.type === 'stop') stop();
-    if (event.data?.type === 'init' && typeof event.data.modelUrl === 'string') start(event.data.modelUrl);
+    if (event.data?.type === 'init' && typeof event.data.modelUrl === 'string') start(event.data.modelUrl, event.data.targetUrl);
   });
   window.addEventListener('pagehide', stop);
   document.addEventListener('visibilitychange', () => {

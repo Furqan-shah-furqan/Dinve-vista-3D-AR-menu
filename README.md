@@ -14,7 +14,8 @@
 - **📊 Restaurant Admin Portal**:
   - Live menu item management (create, update, delete dishes).
   - Drag-and-drop file uploaders for dish photos and 3D `.glb` assets.
-  - Seamless, headerless modal with zero scrollbars.
+  - Scrollable mobile-friendly dish editor with visible upload/save errors.
+  - Upload a marker image, compile its MindAR target, and reuse saved markers on dishes.
   - **Table QR Code Studio**: Instant QR code generation with printable table standee layout.
 - **🎨 Design System**:
   - Built with Next.js 14 App Router and Tailwind CSS.
@@ -22,7 +23,8 @@
   - Fully responsive across mobile, tablet, and desktop.
 - **⚡ Backend Ready**:
   - Supabase integration for persistent database storage and storage buckets (`menu-images`, `menu-models`).
-  - Seamless local-storage fallback mode for instant demonstration without credentials.
+  - IndexedDB demo storage for large binary GLBs without localStorage quota failures.
+  - Demo uploads are browser/device-local, not published to other phones.
 
 ---
 
@@ -98,4 +100,25 @@ Camera AR depends on HTTPS, camera permission, WebGL, lighting and device perfor
 it does not need ARCore, but support on every phone is not guaranteed. Test physical
 tracking on real phones before deploying to restaurant tables.
 
-Verification: `npm run build` and `node --test tests/gesture-handler.test.cjs`.
+## Publishing dishes and custom markers
+
+Open Admin → Add New Dish (or Edit Dish). Upload a valid self-contained GLB 2.0,
+choose a saved marker or select Add marker to upload a JPG/PNG/WebP. The image is
+compiled in an isolated iframe into a matching `.mind` target; wait for completion,
+then Publish Dish. Compilation needs internet and may take a few minutes. Use a
+flat, non-repetitive image with detail; tracking quality is not guaranteed for cloth.
+The dish viewer loads the selected image/target pair, not the global demo marker.
+Existing demo dishes continue using the cloth marker.
+
+Without Supabase, dishes and binary models persist in IndexedDB on the same
+browser/device. Do not clear site data if you want to keep them. Old localStorage
+dishes are migrated without deleting the old backup. Uploads never go in page URLs.
+
+For shared publishing, configure `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, apply
+`supabase/migrations/20261007_dish_markers.sql` in your Supabase project, and use an
+authenticated restaurant-owner session with a real restaurant UUID. The current
+demo admin has no sign-in UI. Backend/RLS errors are shown, never silently saved as
+local-only success. Bucket file size settings must allow your GLB size (app limit 100 MB).
+
+Verification: `npm run build` and `node --test tests/*.test.cjs`.

@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Marker compiler</title></head><body>
+<script type="module">
+import { Compiler } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js';
+window.addEventListener('message', async event => {
+  if (event.origin !== location.origin || event.source !== parent || event.data?.type !== 'compile-marker') return;
+  const send = detail => parent.postMessage({ source: 'marker-compiler', ...detail }, location.origin);
+  let url;
+  try {
+    url = URL.createObjectURL(event.data.file);
+    const image = new Image(); image.src = url; await image.decode();
+    // Limit compilation memory on phones; the uploaded original is still the marker.
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(1, 1024 / Math.max(image.width, image.height));
+    canvas.width = Math.round(image.width * ratio); canvas.height = Math.round(image.height * ratio);
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    const compiler = new Compiler();
+    await compiler.compileImageTargets([canvas], progress => send({ progress }));
+    send({ target: await compiler.exportData() });
+  } catch (error) { send({ error: error.message || 'Could not compile marker. Try a detailed JPG or PNG.' }); }
+  finally { if (url) URL.revokeObjectURL(url); }
+});
+</script></body></html>

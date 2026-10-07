@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { localStore } from './local-store';
 
 // ==============================================================================
 // 1. SUPABASE DATABASE INTERFACES (Strictly Menu & Restaurant Models)
@@ -20,6 +21,7 @@ export interface MenuItem {
   price: number;
   image_url: string;
   glb_model_url: string;
+  marker_id?: string | null;
   created_at?: string;
 }
 
@@ -45,6 +47,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 // ==============================================================================
 export const STORAGE_BUCKET_IMAGES = 'menu-images';
 export const STORAGE_BUCKET_MODELS = 'menu-models';
+export const STORAGE_BUCKET_MARKERS = 'menu-markers';
+export interface ARMarker { id: string; restaurant_id: string; name: string; image_url: string; target_url: string; }
+export const DEFAULT_MARKER: ARMarker = { id: 'default', restaurant_id: 'rest-dinevista-001', name: 'Demo cloth photo', image_url: '/ar/marker.jpg', target_url: '/ar/targets.mind' };
 
 // ==============================================================================
 // 4. PRELOADED GOURMET SEED DATA (Exact Authentic High-Resolution Food Photography)
@@ -177,9 +182,10 @@ export const api = {
           : supabase.from('restaurants').select('*').eq('slug', identifier);
 
         const { data, error } = await query.single();
-        if (!error && data) return data as Restaurant;
+        if (error) throw new Error(error.message);
+        if (data) return data as Restaurant;
       } catch (err) {
-        console.warn('Supabase restaurant fetch failed, using local fallback:', err);
+        throw err;
       }
     }
 
@@ -204,27 +210,31 @@ export const api = {
           .eq('restaurant_id', restaurantId)
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) return migrateDemoModels(data as MenuItem[]);
+        if (error) throw new Error(error.message);
+        return migrateDemoModels(data as MenuItem[]);
       } catch (err) {
-        console.warn('Supabase menu_items fetch failed, using local store:', err);
+        throw err;
       }
     }
 
     if (typeof window === 'undefined') return INITIAL_MENU_ITEMS;
 
+    const saved = await localStore<MenuItem[]>(LOCAL_STORAGE_KEY_MENU);
+    if (saved) return migrateDemoModels(saved).filter(item => item.restaurant_id === restaurantId);
+
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY_MENU);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           const migrated = migrateDemoModels(parsed);
-          localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(migrated));
+          await localStore(LOCAL_STORAGE_KEY_MENU, migrated);
           return migrated;
         }
       } catch {}
     }
 
-    localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(INITIAL_MENU_ITEMS));
+    await localStore(LOCAL_STORAGE_KEY_MENU, INITIAL_MENU_ITEMS);
     return INITIAL_MENU_ITEMS;
   },
 
@@ -232,7 +242,7 @@ export const api = {
   async addMenuItem(item: Omit<MenuItem, 'id' | 'created_at'>): Promise<MenuItem> {
     const newItem: MenuItem = {
       ...item,
-      id: `dish-${Date.now().toString().slice(-6)}`,
+      id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
 
@@ -244,16 +254,17 @@ export const api = {
           .select()
           .single();
 
-        if (!error && data) return data as MenuItem;
+        if (error) throw new Error(error.message);
+        return data as MenuItem;
       } catch (err) {
-        console.warn('Supabase insert failed, saving locally:', err);
+        throw err;
       }
     }
 
     if (typeof window !== 'undefined') {
       const items = await this.getMenuItems(item.restaurant_id);
       const updated = [newItem, ...items];
-      localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(updated));
+      await localStore(LOCAL_STORAGE_KEY_MENU, updated);
     }
     return newItem;
   },
@@ -269,16 +280,17 @@ export const api = {
           .select()
           .single();
 
-        if (!error && data) return data as MenuItem;
+        if (error) throw new Error(error.message);
+        return data as MenuItem;
       } catch (err) {
-        console.warn('Supabase update failed, saving locally:', err);
+        throw err;
       }
     }
 
     if (typeof window !== 'undefined') {
       const items = await this.getMenuItems(item.restaurant_id);
       const updated = items.map((i) => (i.id === item.id ? item : i));
-      localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(updated));
+      await localStore(LOCAL_STORAGE_KEY_MENU, updated);
     }
     return item;
   },
@@ -287,48 +299,89 @@ export const api = {
   async deleteMenuItem(id: string, restaurantId: string = 'rest-dinevista-001'): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('menu_items').delete().eq('id', id);
+        const { error } = await supabase.from('menu_items').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+        return true;
       } catch (err) {
-        console.warn('Supabase delete failed:', err);
+        throw err;
       }
     }
 
     if (typeof window !== 'undefined') {
       const items = await this.getMenuItems(restaurantId);
       const filtered = items.filter((i) => i.id !== id);
-      localStorage.setItem(LOCAL_STORAGE_KEY_MENU, JSON.stringify(filtered));
+      await localStore(LOCAL_STORAGE_KEY_MENU, filtered);
     }
     return true;
   },
 
   // Upload file to Supabase Storage Bucket ('menu-images' or 'menu-models')
-  async uploadFile(file: File, bucket: typeof STORAGE_BUCKET_IMAGES | typeof STORAGE_BUCKET_MODELS): Promise<string> {
+  async uploadFile(file: File, bucket: string): Promise<string> {
+    if (!file.size) throw new Error('File is empty.');
+    if (file.size > 100 * 1024 * 1024) throw new Error('File too large. Use a file under 100 MB.');
+    if (bucket === STORAGE_BUCKET_MODELS) {
+      const header = new DataView(await file.slice(0, 12).arrayBuffer());
+      if (!file.name.toLowerCase().endsWith('.glb') || header.byteLength < 12 || header.getUint32(0, true) !== 0x46546c67 || header.getUint32(4, true) !== 2 || header.getUint32(8, true) !== file.size) throw new Error('Choose a valid self-contained GLB 2.0 file, not GLTF.');
+    }
     if (isSupabaseConfigured && supabase) {
       try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) throw new Error('Sign in as the restaurant owner to upload shared files.');
+        const filePath = `${sessionData.session.user.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
           .upload(filePath, file, { cacheControl: '3600', upsert: true });
 
+        if (uploadError) throw new Error(uploadError.message);
         if (!uploadError) {
           const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
           return data.publicUrl;
         }
       } catch (err) {
-        console.warn('Supabase storage upload failed, using local data URL:', err);
+        throw err;
       }
     }
 
-    // Local Data URL fallback for immediate visual preview
-    return new Promise((resolve) => {
+    if (bucket !== STORAGE_BUCKET_IMAGES) {
+      const key = `asset:${crypto.randomUUID()}`;
+      await localStore(key, file);
+      return `dinevista-${key}`;
+    }
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         resolve(reader.result as string);
       };
+      reader.onerror = () => reject(new Error('Could not read image.'));
       reader.readAsDataURL(file);
     });
+  },
+  async resolveFile(url: string): Promise<string> {
+    if (!url.startsWith('dinevista-asset:')) return url;
+    const blob = await localStore<Blob>(url.slice('dinevista-'.length));
+    if (!blob) throw new Error('This demo file is unavailable on this browser. Upload it here, or configure Supabase for shared files.');
+    return URL.createObjectURL(blob);
+  },
+  async getMarkers(restaurantId: string): Promise<ARMarker[]> {
+    if (supabase) {
+      const { data, error } = await supabase.from('ar_markers').select('*').eq('restaurant_id', restaurantId);
+      if (error) throw new Error(error.message);
+      return [DEFAULT_MARKER, ...(data || [])];
+    }
+    return [DEFAULT_MARKER, ...(await localStore<ARMarker[]>(`markers:${restaurantId}`) || [])];
+  },
+  async addMarker(marker: Omit<ARMarker, 'id'>): Promise<ARMarker> {
+    const saved = { ...marker, id: crypto.randomUUID() };
+    if (supabase) {
+      const { error } = await supabase.from('ar_markers').insert(saved);
+      if (error) throw new Error(error.message);
+    } else {
+      const markers = (await this.getMarkers(marker.restaurant_id)).filter(item => item.id !== 'default');
+      await localStore(`markers:${marker.restaurant_id}`, [...markers, saved]);
+    }
+    return saved;
   },
 };

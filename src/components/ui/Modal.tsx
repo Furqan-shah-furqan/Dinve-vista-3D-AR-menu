@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MenuItem } from '@/lib/supabase';
+import { MenuItem, isSupabaseConfigured } from '@/lib/supabase';
+import { MarkerPicker } from '@/components/admin/MarkerPicker';
 import { DropZone } from '@/components/ui/DropZone';
 import { X, Sparkles, Save, Loader2 } from 'lucide-react';
 
@@ -27,30 +28,38 @@ export function DishModal({
     dish?.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&auto=format&fit=crop&q=80'
   );
   const [glbModelUrl, setGlbModelUrl] = useState(
-    dish?.glb_model_url || 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb'
+    dish?.glb_model_url || ''
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [markerId, setMarkerId] = useState(dish?.marker_id || 'default');
+  const [pending, setPending] = useState({ image: false, model: false, marker: false });
+  const [error, setError] = useState('');
+  const busy = isSaving || Object.values(pending).some(Boolean);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price) return;
+    if (busy) return;
+    setError('');
+    if (!name.trim() || !Number.isFinite(Number(price)) || Number(price) < 0) { setError('Enter a dish title and a valid non-negative price.'); return; }
+    if (!glbModelUrl) { setError('Upload a GLB model before publishing.'); return; }
 
     setIsSaving(true);
     try {
       await onSave({
         id: dish?.id,
         restaurant_id: restaurantId,
-        name,
+        name: name.trim(),
         description,
-        price: parseFloat(price) || 9.99,
+        price: Number(price),
         image_url: imageUrl,
         glb_model_url: glbModelUrl,
+        marker_id: markerId === 'default' ? null : markerId,
       });
       onClose();
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Could not publish dish. Please retry.');
     } finally {
       setIsSaving(false);
     }
@@ -59,7 +68,7 @@ export function DishModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/75 backdrop-blur-sm">
       {/* Direct Seamless Dialog (No Separate Header/Footer Blocks, No Scrollbar, 10px Padding, Matching Theme) */}
-      <div className="relative w-full max-w-xl bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet shadow-darker overflow-hidden border-none p-[10px] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label={dish ? 'Edit dish' : 'Add new dish'} className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop shadow-darker border-none p-[10px] flex flex-col">
         {/* Compact Inline Header with Close Icon */}
         <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 rounded-2xl text-white shadow-soft">
           <div className="flex items-center gap-2">
@@ -69,6 +78,8 @@ export function DishModal({
             </h2>
           </div>
           <button
+            type="button"
+            disabled={busy}
             onClick={onClose}
             className="p-1 text-white/80 hover:text-white hover:bg-white/20 rounded-full transition-all duration-200 border-none"
           >
@@ -101,6 +112,7 @@ export function DishModal({
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 required
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
@@ -132,22 +144,29 @@ export function DishModal({
               type="image"
               currentValue={imageUrl}
               onUploaded={(url) => setImageUrl(url)}
+              onBusy={(image) => setPending(previous => ({ ...previous, image }))}
               helperText="High-res photo"
             />
             <DropZone
               label="2. 3D Model (.glb)"
-              accept=".glb,.gltf"
+              accept=".glb"
               type="model"
               currentValue={glbModelUrl}
               onUploaded={(url) => setGlbModelUrl(url)}
+              onBusy={(model) => setPending(previous => ({ ...previous, model }))}
               helperText="MindAR .glb asset"
             />
           </div>
+
+          <MarkerPicker restaurantId={restaurantId} value={markerId} onChange={setMarkerId} onBusy={(marker) => setPending(previous => ({ ...previous, marker }))} />
+          {!isSupabaseConfigured && <p className="text-xs text-amber-700 dark:text-amber-200">Demo mode: saved on this browser/device only. Shared publishing requires Supabase.</p>}
+          {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
 
           {/* Row 4: Action Buttons directly inside form */}
           <div className="flex items-center justify-end gap-2.5 pt-1">
             <button
               type="button"
+              disabled={busy}
               onClick={onClose}
               className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-800 transition-all duration-200 border-none"
             >
@@ -156,7 +175,7 @@ export function DishModal({
 
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={busy}
               className="flex items-center gap-1.5 px-6 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-heading font-extrabold text-xs shadow-glow transition-all duration-200 ease-in-out hover:scale-105 active:scale-95 border-none"
             >
               {isSaving ? (
@@ -164,7 +183,7 @@ export function DishModal({
               ) : (
                 <Save className="w-3.5 h-3.5" />
               )}
-              <span>{dish ? 'Save Changes' : 'Publish Dish'}</span>
+              <span>{busy ? 'Please wait…' : dish ? 'Save Changes' : 'Publish Dish'}</span>
             </button>
           </div>
         </form>
