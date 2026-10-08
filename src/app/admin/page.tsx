@@ -65,8 +65,26 @@ export default function RestaurantAdminPage() {
     return () => data.subscription.unsubscribe();
   }, []);
   useEffect(() => {
-    if (authReady && (!isSupabaseConfigured || signedIn)) void loadData();
-    else if (authReady) { setRestaurant(null); setMenuItems([]); setLoading(false); }
+    if (!authReady) return;
+    if (isSupabaseConfigured && !signedIn) {
+      setRestaurant(null); setMenuItems([]); setLoading(false);
+      return;
+    }
+    let running = false;
+    const refresh = async () => {
+      if (running || document.hidden) return;
+      running = true;
+      try { await loadData(); } finally { running = false; }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [authReady, signedIn]);
 
   const signIn = async (event: React.FormEvent) => {
