@@ -55,7 +55,7 @@ export function DishModal({
     if (busy) return;
     setError('');
     if (!name.trim() || !Number.isFinite(Number(price)) || Number(price) < 0) { setError('Enter a dish title and a valid non-negative price.'); return; }
-    if (!glbModelUrl) { setError('Upload a GLB model before publishing.'); return; }
+    if (!glbModelUrl) { setError('Upload a GLB or glTF model before publishing.'); return; }
 
     setIsSaving(true);
     try {
@@ -160,13 +160,13 @@ export function DishModal({
               helperText="High-res photo"
             />
             <DropZone
-              label="2. 3D Model (.glb)"
-              accept=".glb"
+              label="2. 3D Model (GLB / glTF)"
+              accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.ktx2"
               type="model"
               currentValue={glbModelUrl}
               onUploaded={(url) => setGlbModelUrl(url)}
               onBusy={(model) => setPending(previous => ({ ...previous, model }))}
-              helperText="GLB · up to 100 MB"
+              helperText="GLB / glTF · up to 100 MB · select .bin/textures too"
             />
           </div>
 

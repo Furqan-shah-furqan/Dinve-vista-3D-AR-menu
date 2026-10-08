@@ -1,7 +1,7 @@
 # DineVista AR 🍔📱
 ### Production Next.js 14 & MindAR 3D Restaurant Menu Web Application
 
-**DineVista AR** is an agency-grade WebAR dining platform that allows patrons to browse a chef-curated gourmet menu and project interactive, real-scale 3D models of dishes directly onto their dining tables using WebAR (MindAR + A-Frame / Three.js). It includes a full Restaurant Admin Portal for managing dishes, .GLB 3D models, and generating printable table QR standees.
+**DineVista AR** is an agency-grade WebAR dining platform that allows patrons to browse a chef-curated gourmet menu and project interactive, real-scale 3D models of dishes directly onto their dining tables using WebAR (MindAR + A-Frame / Three.js). It includes a full Restaurant Admin Portal for managing dishes, GLB/glTF 3D models, and generating printable table QR standees.
 
 ---
 
@@ -13,7 +13,7 @@
   - Pre-seeded with authentic gourmet food photography.
 - **📊 Restaurant Admin Portal**:
   - Live menu item management (create, update, delete dishes).
-  - Drag-and-drop file uploaders for dish photos and 3D `.glb` assets.
+  - Drag-and-drop file uploaders for dish photos and 3D `.glb` / `.gltf` assets.
   - Scrollable mobile-friendly dish editor with visible upload/save errors.
   - Upload a marker image, compile its MindAR target, and reuse saved markers on dishes.
   - **Table QR Code Studio**: Instant QR code generation with printable table standee layout.
@@ -102,7 +102,7 @@ tracking on real phones before deploying to restaurant tables.
 
 ## Publishing dishes and custom markers
 
-Open Admin → Add New Dish (or Edit Dish). Upload a valid self-contained GLB 2.0,
+Open Admin → Add New Dish (or Edit Dish). Upload a valid GLB or glTF 2.0 model,
 choose a saved marker or select Add marker to upload a JPG/PNG/WebP. The image is
 compiled in an isolated iframe into a matching `.mind` target; wait for completion,
 then Publish Dish. Compilation needs internet and may take a few minutes. Use a
@@ -140,3 +140,17 @@ The app uploads directly to Storage, without passing files through Vercel.
 No service-role or secret keys are used in the browser or committed to GitHub.
 
 Verification: `npm run build` and `node --test tests/*.test.cjs`.
+
+### glTF uploads
+The model field accepts `.glb` and `.gltf`. For a glTF with separate resources,
+select/drop **one .gltf together with all referenced .bin and texture files**,
+or use **Choose folder** for an export folder containing a single model.
+The app embeds those resources into the JSON before saving so the model stays
+portable across devices and local-to-shared imports. Missing or ambiguous
+resource filenames stop the upload and preserve the previous attachment.
+Nested resource paths work when each selected filename is unique. Remote
+resource URLs must be exported as local resources first. Embedded glTF also
+works as a single file. No geometry, materials or textures are simplified.
+The final embedded model must be under 100 MB; base64 embedding increases size.
+Supabase Free still enforces its global 50 MB limit. The existing database
+field `glb_model_url` stores either format's URL for compatibility.

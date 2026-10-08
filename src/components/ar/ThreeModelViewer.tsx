@@ -77,7 +77,7 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
       setError(''); setLoading(false);
     }, undefined, () => {
       clearTimeout(timer);
-      if (!disposed) { setLoading(false); setError('Could not load the GLB. Check its public URL and storage CORS settings.'); }
+      if (!disposed) { setLoading(false); setError('Could not load the GLB/glTF model. Check its public URL and storage CORS settings.'); }
     });
     const resize = () => {
       const width = container.clientWidth || 300;

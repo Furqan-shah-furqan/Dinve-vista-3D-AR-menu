@@ -80,7 +80,7 @@
         modelReady = true;
         ready();
       });
-      model.addEventListener('model-error', () => fail('The 3D model could not load. Check its public URL, GLB format and storage CORS settings.'));
+      model.addEventListener('model-error', () => fail('The 3D model could not load. Check its public URL, GLB/glTF format and storage CORS settings.'));
       // Use the component object form: never interpolate untrusted URLs into HTML.
       model.setAttribute('gltf-model', modelUrl);
       pivot.appendChild(model);

@@ -68,7 +68,7 @@ function ARViewContent() {
       setCameraBlock('Camera access is unavailable in this browser. Open this page directly in Chrome on Android or Safari on iPhone, outside any in-app browser. You can still use 3D Preview.');
     }
   }, []);
-  const validModel = /^(https?:\/\/|blob:|data:(application\/octet-stream|model\/gltf-binary)[;,]|\/(?!\/))/i.test(modelUrl);
+  const validModel = /^(https?:\/\/|blob:|data:(application\/octet-stream|model\/gltf-binary|model\/gltf\+json)[;,]|\/(?!\/))/i.test(modelUrl);
   const isSample = modelUrl.includes('glTF-Sample-Models');
   const isDemo = modelUrl.startsWith('/models/demo/');
 
@@ -124,7 +124,7 @@ function ARViewContent() {
         <a className={`${button} inline-block my-4`} href={marker.image_url} download="dinevista-ar-marker">Download Selected Marker</a>
         <p className="text-sm text-slate-300 mb-4">The menu QR opens the website. This separate image anchors the 3D model.</p>
         {isSample && <p className="text-amber-200 text-sm mb-4">This dish currently uses a sample model. Upload its real food GLB in the dashboard to show the correct dish.</p>}
-        {loading ? <p role="status">Loading dish and marker…</p> : !validModel && <p role="alert" className="text-amber-200 mb-4">No valid 3D model is attached. Upload a GLB in the dashboard.</p>}
+        {loading ? <p role="status">Loading dish and marker…</p> : !validModel && <p role="alert" className="text-amber-200 mb-4">No valid 3D model is attached. Upload a GLB or glTF in the dashboard.</p>}
         {error && <p role="alert" className="bg-rose-950 p-4 rounded-custom-mobile mb-4">{error}</p>}
         <button disabled={loading || !targetUrl || !validModel || Boolean(cameraBlock)} className={`${button} bg-purple-600 disabled:opacity-40 w-full`} onClick={start}>{cameraBlock ? 'Camera AR unavailable here' : error ? 'Retry Camera AR' : 'Start Camera AR'}</button>
       </section>}

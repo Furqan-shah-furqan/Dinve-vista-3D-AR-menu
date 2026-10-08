@@ -270,7 +270,7 @@ export default function RestaurantAdminPage() {
             </h1>
             <p className="text-xs md:text-sm text-purple-200 font-body mt-1">
               {activeTab === 'menu'
-                ? 'Manage gourmet dishes, attach 3D .GLB models, and configure WebAR experiences'
+                ? 'Manage gourmet dishes, attach 3D GLB / glTF models, and configure WebAR experiences'
                 : 'Download printable table QR codes and MindAR marker standees for patrons'}
             </p>
           </div>
@@ -281,7 +281,7 @@ export default function RestaurantAdminPage() {
               className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-heading font-extrabold text-xs rounded-2xl shadow-glow transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 border-none self-start md:self-auto"
             >
               <Plus className="w-4 h-4" />
-              <span>Add New Dish (.GLB Ready)</span>
+              <span>Add New Dish (GLB / glTF)</span>
             </button>
           )}
         </div>

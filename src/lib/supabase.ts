@@ -174,6 +174,64 @@ const LOCAL_STORAGE_KEY_REST = 'dinevista_restaurant_v6';
 // 5. DATA API FUNCTIONS
 // ==============================================================================
 
+type GltfResource = { uri?: string; byteLength?: number; bufferView?: number; mimeType?: string };
+type GltfDocument = { asset?: { version?: string }; buffers?: GltfResource[]; images?: GltfResource[] };
+const MODEL_MAX_BYTES = 100 * 1024 * 1024;
+
+async function readGltf(file: File): Promise<GltfDocument> {
+  if (!file.size || file.size > MODEL_MAX_BYTES) throw new Error('Choose a non-empty model up to 100 MB.');
+  let document: GltfDocument;
+  try { document = JSON.parse(await file.text()); }
+  catch { throw new Error('The .gltf file must contain valid glTF 2.0 JSON.'); }
+  if (!document || document.asset?.version !== '2.0') throw new Error('Choose a glTF 2.0 model.');
+  for (const key of ['buffers', 'images'] as const) {
+    const resources = document[key];
+    if (resources !== undefined && !Array.isArray(resources)) throw new Error(`Invalid glTF ${key}.`);
+    for (const resource of resources || []) {
+      if (!resource || typeof resource !== 'object' || (resource.uri !== undefined && typeof resource.uri !== 'string')) throw new Error(`Invalid glTF ${key} resource.`);
+      if (key === 'buffers' && (!resource.uri || !Number.isInteger(resource.byteLength) || resource.byteLength! <= 0)) throw new Error('Each .gltf buffer needs a URI and a positive byteLength.');
+      if (key === 'images' && !resource.uri && !Number.isInteger(resource.bufferView)) throw new Error('Each glTF image needs a URI or bufferView.');
+    }
+  }
+  return document;
+}
+
+// Keep JSON glTF self-contained so shared uploads and local demo imports both work.
+async function packGltf(model: File, files: File[]): Promise<File> {
+  const document = await readGltf(model);
+  const resources = [...(document.buffers || []), ...(document.images || [])];
+  const dependencies = new Map<string, File>();
+  for (const resource of resources) {
+    if (!resource.uri || resource.uri.startsWith('data:')) continue;
+    if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(resource.uri)) throw new Error('Export glTF with local .bin/textures instead of remote resource URLs.');
+    let path: string;
+    try { path = decodeURIComponent(resource.uri).replace(/\\/g, '/').replace(/^\.\//, ''); }
+    catch { throw new Error('Invalid glTF resource filename.'); }
+    const candidates = files.filter(file => file !== model && (file.webkitRelativePath?.endsWith('/' + path) || file.name === path));
+    const matches = candidates.length ? candidates : files.filter(file => file !== model && file.name === path.split('/').pop());
+    if (matches.length !== 1) throw new Error(`Select the .gltf and its required file “${path}” together. Filenames must be unique.`);
+    if (!matches[0].size || matches[0].size > MODEL_MAX_BYTES) throw new Error(`Resource “${path}” must be non-empty and under 100 MB.`);
+    if (resource.byteLength !== undefined && resource.byteLength > matches[0].size) throw new Error(`Buffer “${path}” is shorter than the glTF byteLength.`);
+    dependencies.set(resource.uri, matches[0]);
+  }
+  // Base64 expands binary resources; enforce the final uploaded model limit too.
+  const estimatedBytes = model.size + [...dependencies.values()].reduce((sum, file) => sum + 4 * Math.ceil(file.size / 3) + 100, 0);
+  if (estimatedBytes > MODEL_MAX_BYTES) throw new Error('Combined glTF exceeds 100 MB after embedding resources. Export as GLB or reduce texture sizes.');
+  const embedded = new Map<string, string>();
+  for (const [uri, file] of dependencies) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 32768) binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const mime = extension === 'png' ? 'image/png' : ['jpg', 'jpeg'].includes(extension || '') ? 'image/jpeg' : extension === 'webp' ? 'image/webp' : extension === 'ktx2' ? 'image/ktx2' : 'application/octet-stream';
+    embedded.set(uri, `data:${mime};base64,${btoa(binary)}`);
+  }
+  for (const resource of resources) if (resource.uri && embedded.has(resource.uri)) resource.uri = embedded.get(resource.uri)!;
+  const packed = new File([JSON.stringify(document)], model.name, { type: 'model/gltf+json' });
+  if (packed.size > MODEL_MAX_BYTES) throw new Error('Combined glTF exceeds the 100 MB model limit.');
+  return packed;
+}
+
 export const api = {
   async getLocalDishes(): Promise<MenuItem[]> {
     const saved = await localStore<MenuItem[]>(LOCAL_STORAGE_KEY_MENU);
@@ -190,7 +248,7 @@ export const api = {
       if (uploaded.has(url)) return uploaded.get(url)!;
       const blob = url.startsWith('data:') ? await (await fetch(url)).blob() : await localStore<Blob>(url.slice('dinevista-'.length));
       if (!blob) throw new Error('A local attachment is missing. Re-upload that file before importing. Local dishes were kept.');
-      const ext = bucket === STORAGE_BUCKET_MODELS ? 'glb' : bucket === STORAGE_BUCKET_MARKERS ? 'mind' : blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+      const ext = bucket === STORAGE_BUCKET_MODELS ? (blob.type === 'model/gltf+json' ? 'gltf' : 'glb') : bucket === STORAGE_BUCKET_MARKERS ? 'mind' : blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
       const shared = await this.uploadFile(new File([blob], `import.${ext}`, { type: blob.type }), bucket);
       uploaded.set(url, shared); return shared;
     };
@@ -359,15 +417,26 @@ export const api = {
     return true;
   },
 
+  async uploadModelFiles(files: File[]): Promise<string> {
+    const models = files.filter(file => /\.(glb|gltf)$/i.test(file.name));
+    if (models.length !== 1) throw new Error('Select one GLB or glTF model, plus its .bin and texture files if needed.');
+    const model = models[0];
+    return this.uploadFile(/\.gltf$/i.test(model.name) ? await packGltf(model, files) : model, STORAGE_BUCKET_MODELS);
+  },
   // Upload file to Supabase Storage Bucket ('menu-images' or 'menu-models')
   async uploadFile(file: File, bucket: string): Promise<string> {
     if (!file.size) throw new Error('File is empty.');
     const maxMB = bucket === STORAGE_BUCKET_MODELS ? 100 : bucket === STORAGE_BUCKET_IMAGES ? 10 : 50;
     if (file.size > maxMB * 1024 * 1024) throw new Error(`File too large. Maximum size is ${maxMB} MB.`);
-    if (bucket === STORAGE_BUCKET_MODELS) {
+    const isGltf = bucket === STORAGE_BUCKET_MODELS && /\.gltf$/i.test(file.name);
+    if (isGltf) {
+      const document = await readGltf(file);
+      if ([...(document.buffers || []), ...(document.images || [])].some(resource => resource.uri && !resource.uri.startsWith('data:'))) throw new Error('Select the .gltf together with its .bin and texture files.');
+    } else if (bucket === STORAGE_BUCKET_MODELS) {
       const header = new DataView(await file.slice(0, 12).arrayBuffer());
-      if (!file.name.toLowerCase().endsWith('.glb') || header.byteLength < 12 || header.getUint32(0, true) !== 0x46546c67 || header.getUint32(4, true) !== 2 || header.getUint32(8, true) !== file.size) throw new Error('Choose a valid self-contained GLB 2.0 file, not GLTF.');
+      if (!file.name.toLowerCase().endsWith('.glb') || header.byteLength < 12 || header.getUint32(0, true) !== 0x46546c67 || header.getUint32(4, true) !== 2 || header.getUint32(8, true) !== file.size) throw new Error('Choose a valid self-contained GLB 2.0 file or a glTF 2.0 model.');
     }
+    const contentType = bucket === STORAGE_BUCKET_MODELS ? (isGltf ? 'model/gltf+json' : 'model/gltf-binary') : file.type || 'application/octet-stream';
     if (isSupabaseConfigured && supabase) {
       try {
         const fileExt = file.name.split('.').pop();
@@ -378,11 +447,11 @@ export const api = {
 
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: bucket === STORAGE_BUCKET_MODELS ? 'model/gltf-binary' : file.type || 'application/octet-stream' });
+          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType });
 
         if (uploadError) {
           if (String(uploadError.statusCode) === '413' || /maximum.*size|too large|size.*limit/i.test(uploadError.message)) {
-            throw new Error('Storage rejected this file size. For GLBs over 50 MB, the Supabase owner must upgrade from Free and set Storage → Settings → Global file size limit to 100 MB. Your previous attachment is kept.');
+            throw new Error('Storage rejected this file size. For models over 50 MB, the Supabase owner must upgrade from Free and set Storage → Settings → Global file size limit to 100 MB. Your previous attachment is kept.');
           }
           throw new Error(uploadError.message);
         }
@@ -398,7 +467,7 @@ export const api = {
     if (bucket !== STORAGE_BUCKET_IMAGES) {
       const key = `asset:${crypto.randomUUID()}`;
       // Store a plain Blob: some browsers cannot clone native file-picker File objects.
-      await localStore(key, new Blob([file], { type: file.type || 'application/octet-stream' }));
+      await localStore(key, new Blob([file], { type: isGltf ? 'model/gltf+json' : file.type || 'application/octet-stream' }));
       return `dinevista-${key}`;
     }
     return new Promise((resolve, reject) => {

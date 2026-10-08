@@ -12,7 +12,7 @@ function load(configured = false, customDatabase) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/supabase.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, {
     module, exports: module.exports, process: { env: configured ? { NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test' } : {} },
     require: name => name === './local-store' ? { localStore: async (key, value) => { if (value !== undefined) saved.set(key, value); return saved.get(key); } } : { createClient: () => database },
-    crypto: { randomUUID }, window: {}, localStorage: { getItem: () => null, setItem: () => { throw new Error('localStorage quota exceeded'); } }, Blob, File, DataView, URL, console, fetch, Map,
+    crypto: { randomUUID }, window: {}, localStorage: { getItem: () => null, setItem: () => { throw new Error('localStorage quota exceeded'); } }, Blob, File, DataView, URL, console, fetch, Map, btoa,
   });
   return { api: module.exports.api, saved };
 }
@@ -111,4 +111,71 @@ test('shared GLBs allow 78 MB and 100 MB, reject larger files, and explain globa
   await assert.rejects(api.uploadFile({ size: 10 * 1024 * 1024 + 1 }, 'menu-images'), /Maximum size is 10 MB/);
   rejectStorage = true;
   await assert.rejects(api.uploadFile(glb(24), 'menu-models'), /Global file size limit to 100 MB/);
+});
+
+function triangleGltf(uri = 'mesh.bin') {
+  return {
+    asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    buffers: [{ uri, byteLength: 36 }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] }],
+  };
+}
+const triangleBytes = () => new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+
+test('glTF packs separate geometry/textures and the real Three.js loader reads its geometry', async () => {
+  let uploaded;
+  const db = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'owner' } } } }) },
+    storage: { from: () => ({ upload: async (_path, file, options) => {
+      assert.equal(options.contentType, 'model/gltf+json');
+      assert.equal(file.name.endsWith('.gltf'), true);
+      uploaded = JSON.parse(await file.text()); return {};
+    }, getPublicUrl: () => ({ data: { publicUrl: 'https://storage.example/dish.gltf' } }) }) },
+  };
+  const { api } = load(true, db);
+  const doc = triangleGltf('geometry/mesh.bin');
+  doc.images = [{ uri: 'textures/food%20photo.png' }];
+  const url = await api.uploadModelFiles([
+    new File(['texture'], 'food photo.png', { type: 'image/png' }),
+    new File([JSON.stringify(doc)], 'dish.gltf'),
+    new File([triangleBytes()], 'mesh.bin'),
+  ]);
+  assert.equal(url, 'https://storage.example/dish.gltf');
+  assert.deepEqual(Buffer.from(uploaded.buffers[0].uri.split(',')[1], 'base64'), Buffer.from(triangleBytes().buffer));
+  assert.equal(uploaded.images[0].uri, 'data:image/png;base64,dGV4dHVyZQ==');
+  // Geometry smoke test against the same GLTFLoader used by the preview viewer.
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  global.ProgressEvent ||= class ProgressEvent { constructor(type, options) { this.type = type; Object.assign(this, options); } };
+  const geometryDoc = { ...uploaded }; delete geometryDoc.images;
+  const model = await new GLTFLoader().parseAsync(JSON.stringify(geometryDoc), '');
+  assert.equal(model.scene.children[0].geometry.attributes.position.count, 3);
+});
+
+test('glTF local saves and shared import preserve format, while incomplete bundles fail before upload', async () => {
+  const { api, saved } = load();
+  const document = triangleGltf('data:application/octet-stream;base64,' + Buffer.from(triangleBytes().buffer).toString('base64'));
+  const file = new File([JSON.stringify(document)], 'dish.gltf');
+  const url = await api.uploadModelFiles([file]);
+  const blob = saved.get(url.slice('dinevista-'.length));
+  assert.equal(blob.type, 'model/gltf+json');
+  const resolved = await api.resolveFile(url);
+  assert.equal((await (await fetch(resolved)).json()).asset.version, '2.0'); URL.revokeObjectURL(resolved);
+  await assert.rejects(api.uploadModelFiles([new File([JSON.stringify(triangleGltf())], 'missing.gltf')]), /mesh.bin/);
+  await assert.rejects(api.uploadModelFiles([file, file]), /one GLB or glTF/);
+  await assert.rejects(api.uploadModelFiles([new File(['not JSON'], 'bad.gltf')]), /valid glTF 2.0 JSON/);
+  await assert.rejects(api.uploadModelFiles([new File(['{"asset":{"version":"1.0"}}'], 'old.gltf')]), /glTF 2.0 model/);
+  await assert.rejects(api.uploadModelFiles([new File([JSON.stringify(triangleGltf())], 'wrong.gltf'), new File(['short'], 'mesh.bin')]), /byteLength/);
+  await assert.rejects(api.uploadModelFiles([new File([JSON.stringify(triangleGltf('https://other.example/mesh.bin'))], 'remote.gltf')]), /local .bin/);
+  let imported;
+  const db = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'owner' } } } }) },
+    storage: { from: () => ({ upload: async (_path, model, options) => { assert.equal(model.name, 'import.gltf'); assert.equal(options.contentType, 'model/gltf+json'); imported = model; return {}; }, getPublicUrl: () => ({ data: { publicUrl: 'https://storage.example/import.gltf' } }) }) },
+    from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [] }) }) }), upsert: async () => ({}) }),
+  };
+  const shared = load(true, db);
+  shared.saved.set('asset:model', blob);
+  shared.saved.set('dinevista_menu_items_v6', [{ id: 'gltf-dish', name: 'Dish', image_url: '/food.jpg', glb_model_url: 'dinevista-asset:model' }]);
+  assert.equal(await shared.api.importLocalDishes('restaurant', () => {}), 1);
+  assert.equal(JSON.parse(await imported.text()).asset.version, '2.0');
 });

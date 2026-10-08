@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { CheckCircle2, Loader2, AlertCircle, Box, Image as ImageIcon } from 'lucide-react';
-import { api, STORAGE_BUCKET_IMAGES, STORAGE_BUCKET_MODELS } from '@/lib/supabase';
+import { api, STORAGE_BUCKET_IMAGES } from '@/lib/supabase';
 
 interface DropZoneProps {
   label: string;
@@ -31,8 +31,10 @@ export function DropZone({
   const [fileName, setFileName] = useState('');
   const uploading = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
+  const handleFiles = async (files: File[]) => {
+    const file = type === 'model' ? files.find(item => /\.(glb|gltf)$/i.test(item.name)) : files[0];
     if (uploading.current) return;
     uploading.current = true;
     setError(null);
@@ -40,9 +42,9 @@ export function DropZone({
     onBusy?.(true);
 
     try {
+      if (!file) throw new Error('Select one GLB or glTF model with its required files.');
       if (type === 'image' && !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPG, PNG or WebP image.');
-      const bucket = type === 'image' ? STORAGE_BUCKET_IMAGES : STORAGE_BUCKET_MODELS;
-      const uploadedUrl = await api.uploadFile(file, bucket);
+      const uploadedUrl = type === 'model' ? await api.uploadModelFiles(files) : await api.uploadFile(file, STORAGE_BUCKET_IMAGES);
       setPreviewUrl(uploadedUrl);
       setFileName(`${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`);
       onUploaded(uploadedUrl);
@@ -53,6 +55,7 @@ export function DropZone({
       uploading.current = false;
       onBusy?.(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (folderInputRef.current) folderInputRef.current.value = '';
     }
   };
 
@@ -60,7 +63,7 @@ export function DropZone({
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+      void handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -70,6 +73,7 @@ export function DropZone({
         <label className="text-[11px] font-heading font-bold text-slate-800 dark:text-slate-200">
           {label}
         </label>
+        {type === 'model' && <button type="button" disabled={isUploading} onClick={() => folderInputRef.current?.click()} className="text-[10px] font-bold px-2 py-1 bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-200 rounded-custom-mobile border-none transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50">Choose folder</button>}
         {previewUrl && !isUploading && !error && (
           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" /> Ready
@@ -77,6 +81,7 @@ export function DropZone({
         )}
       </div>
 
+      {type === 'model' && <input ref={folderInputRef} type="file" multiple {...{ webkitdirectory: '', directory: '' }} aria-label="Upload glTF model folder" className="hidden" onChange={event => { if (event.target.files?.length) void handleFiles(Array.from(event.target.files)); }} />}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -101,11 +106,12 @@ export function DropZone({
           ref={fileInputRef}
           type="file"
           accept={accept}
+          multiple={type === 'model'}
           className="hidden"
           onClick={(event) => event.stopPropagation()}
           onChange={(e) => {
             if (e.target.files && e.target.files[0]) {
-              handleFile(e.target.files[0]);
+              void handleFiles(Array.from(e.target.files));
             }
           }}
         />
@@ -113,7 +119,7 @@ export function DropZone({
         {isUploading ? (
           <div className="flex flex-col items-center gap-1 text-purple-600 dark:text-purple-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span role="status" className="text-[11px] font-bold">Saving attachment…</span>
+            <span role="status" className="text-[11px] font-bold">{type === 'model' ? 'Preparing and saving model…' : 'Saving attachment…'}</span>
           </div>
         ) : previewUrl ? (
           <div className="flex items-center gap-3 w-full p-1">
@@ -152,10 +158,10 @@ export function DropZone({
               )}
             </div>
             <p className="text-[11px] font-heading font-bold text-slate-800 dark:text-slate-200">
-              Drop {type === 'image' ? 'Food Photo' : '3D .GLB Model'}
+              Drop {type === 'image' ? 'Food Photo' : '3D GLB / glTF Model'}
             </p>
             <p className="text-[9px] text-slate-400">
-              {helperText || (type === 'image' ? 'JPG, PNG, WebP' : '.glb 3D files')}
+              {helperText || (type === 'image' ? 'JPG, PNG, WebP' : '.glb or .gltf + .bin/textures')}
             </p>
           </div>
         )}
