@@ -88,3 +88,27 @@ test('local import uploads binary assets and preserves shared IDs on repeat impo
   saved.delete('asset:test');
   await assert.rejects(api.importLocalDishes('restaurant-uuid', () => {}), /missing/);
 });
+
+test('shared GLBs allow 78 MB and 100 MB, reject larger files, and explain global Storage limits', async () => {
+  let rejectStorage = false;
+  const db = {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'owner' } } } }) },
+    storage: { from: () => ({ upload: async (_path, file, options) => {
+      assert.equal(options.contentType, 'model/gltf-binary');
+      assert.ok(file.size <= 100 * 1024 * 1024);
+      return rejectStorage ? { error: { statusCode: '413', message: 'The object exceeded the maximum allowed size' } } : {};
+    }, getPublicUrl: () => ({ data: { publicUrl: 'https://storage.example/scan.glb' } }) }) },
+  };
+  const { api } = load(true, db);
+  const glb = size => {
+    const header = new Uint8Array(12); const view = new DataView(header.buffer);
+    view.setUint32(0, 0x46546c67, true); view.setUint32(4, 2, true); view.setUint32(8, size, true);
+    return new File([header, new Uint8Array(size - 12)], 'scan.glb');
+  };
+  assert.equal(await api.uploadFile(glb(78 * 1024 * 1024), 'menu-models'), 'https://storage.example/scan.glb');
+  assert.equal(await api.uploadFile(glb(100 * 1024 * 1024), 'menu-models'), 'https://storage.example/scan.glb');
+  await assert.rejects(api.uploadFile({ size: 100 * 1024 * 1024 + 1 }, 'menu-models'), /Maximum size is 100 MB/);
+  await assert.rejects(api.uploadFile({ size: 10 * 1024 * 1024 + 1 }, 'menu-images'), /Maximum size is 10 MB/);
+  rejectStorage = true;
+  await assert.rejects(api.uploadFile(glb(24), 'menu-models'), /Global file size limit to 100 MB/);
+});

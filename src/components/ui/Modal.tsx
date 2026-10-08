@@ -79,8 +79,8 @@ export function DishModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/75 backdrop-blur-sm">
-      {/* Direct Seamless Dialog (No Separate Header/Footer Blocks, No Scrollbar, 10px Padding, Matching Theme) */}
-      <div ref={dialog} style={{ transform: `scale(${scale})` }} role="dialog" aria-modal="true" aria-label={dish ? 'Edit dish' : 'Add new dish'} className="relative w-full max-w-[626px] shrink-0 overflow-hidden bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop shadow-darker border-none p-[10px] flex flex-col">
+      {/* Direct Seamless Dialog (No Separate Header/Footer Blocks, No Scrollbar, 15px Padding, Matching Theme) */}
+      <div ref={dialog} style={{ transform: `scale(${scale})` }} role="dialog" aria-modal="true" aria-label={dish ? 'Edit dish' : 'Add new dish'} className="relative w-full max-w-[626px] shrink-0 overflow-hidden bg-[#faf7f2] dark:bg-slate-900 rounded-custom-mobile md:rounded-custom-tablet lg:rounded-custom-desktop shadow-darker border-none p-[15px] flex flex-col">
         {/* Compact Inline Header with Close Icon */}
         <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 rounded-2xl text-white shadow-soft">
           <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export function DishModal({
           </div>
 
           {/* Row 3: Two Side-by-Side Dedicated Drag-and-Drop Zones */}
-          <div className="grid grid-cols-2 gap-2.5 p-[10px] rounded-2xl bg-purple-100/50 dark:bg-slate-800/60 shadow-darker border-none">
+          <div className="grid grid-cols-2 gap-2.5">
             <DropZone
               label="1. Food Image"
               accept="image/*"
@@ -166,7 +166,7 @@ export function DishModal({
               currentValue={glbModelUrl}
               onUploaded={(url) => setGlbModelUrl(url)}
               onBusy={(model) => setPending(previous => ({ ...previous, model }))}
-              helperText="MindAR .glb asset"
+              helperText="GLB · up to 100 MB"
             />
           </div>
 

@@ -240,6 +240,11 @@ export default function RestaurantAdminPage() {
         {/* Bottom Menu Link Card (10px padding, darker shadow) */}
         <div className="p-[10px] rounded-2xl bg-white/10 backdrop-blur-md shadow-darker flex flex-col gap-2 border-none">
           <span className="text-[11px] font-bold text-purple-200 px-1">Customer Live Menu</span>
+          {isSupabaseConfigured && <>
+            {localCount > 0 && <button disabled={importBusy} onClick={() => void importDishes()} className="px-3 py-2 rounded-[25px] bg-white/10 text-white text-xs border-none disabled:opacity-50">{importBusy ? 'Importing…' : `Import ${localCount} laptop dishes & files`}</button>}
+            {importStatus && <p role="status" className="text-xs">{importStatus}</p>}
+            <button disabled={importBusy} onClick={() => void supabase?.auth.signOut()} className="px-3 py-2 rounded-[25px] bg-white/10 text-white text-xs border-none">Sign out</button>
+          </>}
           <Link
             href={`/menu/${restaurant?.slug || 'dinevista-lounge'}`}
             target="_blank"
@@ -281,12 +286,6 @@ export default function RestaurantAdminPage() {
           )}
         </div>
 
-        {isSupabaseConfigured && <section className="p-4 rounded-[25px] bg-white dark:bg-slate-900 shadow-soft border-none flex flex-wrap items-center gap-3">
-          <p className="text-sm flex-1">Shared menu connected · {menuItems.length} dishes</p>
-          {localCount > 0 && <button disabled={importBusy} onClick={() => void importDishes()} className="px-4 py-2 rounded-[25px] bg-purple-600 text-white border-none disabled:opacity-50">{importBusy ? 'Importing…' : `Import ${localCount} laptop dishes & files`}</button>}
-          <button disabled={importBusy} onClick={() => void supabase?.auth.signOut()} className="px-4 py-2 rounded-[25px] bg-slate-100 dark:bg-slate-800 border-none">Sign out</button>
-          {importStatus && <p role="status" className="w-full text-sm">{importStatus}</p>}
-        </section>}
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         {/* TAB 1: MENU ITEMS CRUD */}
         {activeTab === 'menu' && (

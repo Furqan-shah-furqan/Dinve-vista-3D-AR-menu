@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { ChevronDown, Check } from 'lucide-react';
 import { api, ARMarker, DEFAULT_MARKER, STORAGE_BUCKET_IMAGES, STORAGE_BUCKET_MARKERS } from '@/lib/supabase';
 
 export function MarkerPicker({ restaurantId, value, onChange, onBusy }: {
@@ -12,6 +13,12 @@ export function MarkerPicker({ restaurantId, value, onChange, onBusy }: {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const picker = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (event: PointerEvent) => { if (picker.current && !picker.current.contains(event.target as Node)) picker.current.open = false; };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, []);
   useEffect(() => { api.getMarkers(restaurantId).then(setMarkers).catch(err => setError(err.message)); }, [restaurantId]);
   const upload = async (file: File) => {
     if (busy) return;
@@ -46,10 +53,20 @@ export function MarkerPicker({ restaurantId, value, onChange, onBusy }: {
     <label htmlFor="dish-marker" className="block text-xs font-bold mb-2">3. AR marker — select an uploaded image</label>
     <div className="flex gap-2 items-center">
       {selected && <Image src={selected.image_url} alt="Selected tracking marker" width={44} height={44} unoptimized className="object-cover h-[44px] w-[44px] rounded-full shrink-0 shadow-soft" />}
-      <select id="dish-marker" value={value} disabled={busy} onChange={event => onChange(event.target.value)} className="min-w-0 h-[44px] flex-1 px-3 bg-white dark:bg-slate-900 border-none rounded-custom-mobile shadow-soft text-xs">
-        {markers.map(marker => <option key={marker.id} value={marker.id}>{marker.name}</option>)}
-      </select>
-      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="h-[44px] px-3 shrink-0 bg-purple-600 text-white border-none rounded-custom-mobile shadow-soft text-xs transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50">Add marker</button>
+      <details ref={picker} className="relative min-w-0 flex-1" onKeyDown={event => { if (event.key === 'Escape' && picker.current) { picker.current.open = false; picker.current.querySelector('summary')?.focus(); } }}>
+        <summary aria-label="Choose AR marker" aria-disabled={busy} onClick={event => { if (busy) event.preventDefault(); }} className="h-[44px] px-3 pr-[15px] flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden cursor-pointer bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-none rounded-custom-mobile shadow-soft text-xs transition-all duration-300 ease-in-out">
+          <span className="truncate">{selected?.name || 'Select marker'}</span>
+          <ChevronDown aria-hidden="true" className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-300" />
+        </summary>
+        <div className="absolute bottom-full mb-2 left-0 z-10 w-full min-w-[180px] max-h-[180px] overflow-y-auto p-2 bg-[#faf7f2] dark:bg-slate-900 border-none rounded-custom-mobile shadow-darker" aria-label="Uploaded markers">
+          {markers.map(marker => <button key={marker.id} type="button" disabled={busy} aria-pressed={marker.id === value} onClick={() => { onChange(marker.id); if (picker.current) { picker.current.open = false; picker.current.querySelector('summary')?.focus(); } }} className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs border-none rounded-custom-mobile transition-all duration-300 ease-in-out ${marker.id === value ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white shadow-soft' : 'text-slate-900 dark:text-white hover:bg-purple-100 dark:hover:bg-purple-900/60'}`}>
+            <Image src={marker.image_url} alt="" width={28} height={28} unoptimized className="w-7 h-7 rounded-full object-cover shrink-0" />
+            <span className="truncate flex-1">{marker.name}</span>
+            {marker.id === value && <Check aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />}
+          </button>)}
+        </div>
+      </details>
+      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="h-[44px] px-3 shrink-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white border-none rounded-custom-mobile shadow-glow text-xs transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50">Add marker</button>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload marker image" className="hidden" onChange={event => { if (event.target.files?.[0]) void upload(event.target.files[0]); }} />
     </div>
     <p className="text-xs mt-2">Use a flat, detailed image. Compilation may take a few minutes. Print or display that exact image for tracking.</p>

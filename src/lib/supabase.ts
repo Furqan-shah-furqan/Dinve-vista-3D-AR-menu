@@ -362,7 +362,8 @@ export const api = {
   // Upload file to Supabase Storage Bucket ('menu-images' or 'menu-models')
   async uploadFile(file: File, bucket: string): Promise<string> {
     if (!file.size) throw new Error('File is empty.');
-    if (file.size > (supabase ? 50 : 100) * 1024 * 1024) throw new Error(`File too large. Use a file under ${supabase ? 50 : 100} MB.`);
+    const maxMB = bucket === STORAGE_BUCKET_MODELS ? 100 : bucket === STORAGE_BUCKET_IMAGES ? 10 : 50;
+    if (file.size > maxMB * 1024 * 1024) throw new Error(`File too large. Maximum size is ${maxMB} MB.`);
     if (bucket === STORAGE_BUCKET_MODELS) {
       const header = new DataView(await file.slice(0, 12).arrayBuffer());
       if (!file.name.toLowerCase().endsWith('.glb') || header.byteLength < 12 || header.getUint32(0, true) !== 0x46546c67 || header.getUint32(4, true) !== 2 || header.getUint32(8, true) !== file.size) throw new Error('Choose a valid self-contained GLB 2.0 file, not GLTF.');
@@ -379,7 +380,12 @@ export const api = {
           .from(bucket)
           .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: bucket === STORAGE_BUCKET_MODELS ? 'model/gltf-binary' : file.type || 'application/octet-stream' });
 
-        if (uploadError) throw new Error(uploadError.message);
+        if (uploadError) {
+          if (String(uploadError.statusCode) === '413' || /maximum.*size|too large|size.*limit/i.test(uploadError.message)) {
+            throw new Error('Storage rejected this file size. For GLBs over 50 MB, the Supabase owner must upgrade from Free and set Storage → Settings → Global file size limit to 100 MB. Your previous attachment is kept.');
+          }
+          throw new Error(uploadError.message);
+        }
         if (!uploadError) {
           const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
           return data.publicUrl;

@@ -132,8 +132,11 @@ same dishes with the laptop version. Customer menus refresh every 15 seconds
 while visible and whenever the tab regains focus, including empty menus.
 Configured-backend errors never silently fall back to demo dishes.
 
-Shared GLB/marker uploads support up to 50 MB (the project storage limit);
-images support 10 MB. Unconfigured local demo GLBs support up to 100 MB.
+The app and `menu-models` bucket accept GLBs up to 100 MB; markers support
+50 MB and images support 10 MB. Supabase Free enforces a global 50 MB cap
+even when the bucket allows 100 MB. For larger GLBs, upgrade to Pro or above
+and set Storage → Settings → Global file size limit to at least 100 MB.
+The app uploads directly to Storage, without passing files through Vercel.
 No service-role or secret keys are used in the browser or committed to GitHub.
 
 Verification: `npm run build` and `node --test tests/*.test.cjs`.
