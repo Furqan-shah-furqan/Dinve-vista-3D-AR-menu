@@ -154,3 +154,14 @@ works as a single file. No geometry, materials or textures are simplified.
 The final embedded model must be under 100 MB; base64 embedding increases size.
 Supabase Free still enforces its global 50 MB limit. The existing database
 field `glb_model_url` stores either format's URL for compatibility.
+
+### AR quality and tracking
+Camera AR uses MindAR 1.2.2's built-in One Euro filter with `filterMinCF: 0.001`,
+`filterBeta: 100`, and 8-frame warmup/miss tolerances. These are starting values
+for steadier tracking, with a small latency tradeoff; real phones and markers
+need physical testing. AR enables antialiasing, ACES tone mapping, explicit
+studio lights and texture anisotropy (up to 4×). Both viewers cap pixel ratio
+at 2× with a two-million-pixel budget (minimum native 1×) to limit mobile load.
+The 3D preview also uses a generated room environment for material reflections.
+Models, textures and pinch scaling are preserved; these renderer settings do
+not add detail to a low-quality model or change camera stream resolution.

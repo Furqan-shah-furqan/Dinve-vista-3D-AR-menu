@@ -4,10 +4,12 @@
   let stopped = false;
   let initialized = false;
   let loadTimer;
+  let resizeQuality;
   const send = (type, detail = {}) => parent.postMessage({ source: 'dinevista-ar', type, ...detail }, location.origin);
   const stop = () => {
     stopped = true;
     clearTimeout(loadTimer);
+    if (resizeQuality) window.removeEventListener('resize', resizeQuality);
     try { scene?.systems['mindar-image-system']?.stop(); } catch (_) { /* May not have started yet. */ }
     document.querySelectorAll('video').forEach(video => {
       video.srcObject?.getTracks().forEach(track => track.stop());
@@ -40,8 +42,8 @@
       await script('/gesture-handler.js');
       if (stopped) return;
       scene = document.createElement('a-scene');
-      scene.setAttribute('mindar-image', { imageTargetSrc: targetUrl, autoStart: false, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
-      scene.setAttribute('renderer', 'alpha: true; antialias: false; colorManagement: true; physicallyCorrectLights: true;');
+      scene.setAttribute('mindar-image', { imageTargetSrc: targetUrl, autoStart: false, maxTrack: 1, filterMinCF: 0.001, filterBeta: 100, warmupTolerance: 8, missTolerance: 8, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
+      scene.setAttribute('renderer', 'alpha: true; antialias: true; colorManagement: true; physicallyCorrectLights: true; toneMapping: ACESFilmic; exposure: 1;');
       scene.setAttribute('vr-mode-ui', 'enabled: false');
       scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
       scene.setAttribute('embedded', '');
@@ -50,6 +52,18 @@
       camera.setAttribute('position', '0 0 0');
       camera.setAttribute('look-controls', 'enabled: false');
       scene.appendChild(camera);
+      // Explicit studio lighting replaces A-Frame's automatic default lights.
+      const hemisphere = document.createElement('a-entity');
+      hemisphere.setAttribute('light', 'type: hemisphere; color: #ffffff; groundColor: #7c8490; intensity: 1.5');
+      scene.appendChild(hemisphere);
+      const key = document.createElement('a-entity');
+      key.setAttribute('light', 'type: directional; color: #fff5e8; intensity: 2.5');
+      key.setAttribute('position', '2 3 2');
+      scene.appendChild(key);
+      const fill = document.createElement('a-entity');
+      fill.setAttribute('light', 'type: directional; color: #e5efff; intensity: 0.6');
+      fill.setAttribute('position', '-2 1 1');
+      scene.appendChild(fill);
       const target = document.createElement('a-entity');
       target.setAttribute('mindar-image-target', 'targetIndex: 0');
       target.addEventListener('targetFound', () => send('tracking', { found: true }));
@@ -68,6 +82,16 @@
         if (stopped) return;
         const mesh = model.getObject3D('mesh');
         const THREE = AFRAME.THREE;
+        const anisotropy = Math.min(4, scene.renderer.capabilities.getMaxAnisotropy());
+        mesh.traverse(object => {
+          if (!object.isMesh) return;
+          for (const material of [].concat(object.material || [])) {
+            for (const value of Object.values(material)) if (value?.isTexture) {
+              value.anisotropy = anisotropy;
+              value.needsUpdate = true;
+            }
+          }
+        });
         // Measure in model space, before the marker and table rotation are applied.
         const box = new THREE.Box3().setFromObject(mesh.clone(true));
         const size = box.getSize(new THREE.Vector3());
@@ -90,7 +114,14 @@
       scene.addEventListener('arError', () => fail('Camera could not start. Allow camera access, close other camera apps and retry in Safari or Chrome.'));
       scene.addEventListener('loaded', async () => {
         if (stopped) return;
-        scene.renderer?.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        // Bound the render workload so sharper output does not mean a 4K mobile canvas.
+        resizeQuality = () => {
+          const pixels = Math.max(1, window.innerWidth * window.innerHeight);
+          scene.renderer?.setPixelRatio(Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2000000 / pixels))));
+        };
+        resizeQuality();
+        window.addEventListener('resize', resizeQuality);
+
         try {
           await scene.systems['mindar-image-system'].start();
           if (stopped) stop();

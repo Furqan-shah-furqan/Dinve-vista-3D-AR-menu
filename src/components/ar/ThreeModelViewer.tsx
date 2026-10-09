@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 interface ThreeModelViewerProps {
@@ -44,7 +45,8 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
     camera.position.set(0, 0.8, 2.4);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
     renderer.domElement.style.touchAction = 'none';
@@ -54,10 +56,17 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
     controls.autoRotate = autoRotate;
     controls.minDistance = 0.7;
     controls.maxDistance = 6;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2));
-    const light = new THREE.DirectionalLight(0xffffff, 3);
+    const environment = new RoomEnvironment();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const environmentTarget = pmrem.fromScene(environment, 0.04);
+    scene.environment = environmentTarget.texture;
+    environment.dispose(); pmrem.dispose();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x7c8490, 1.5));
+    const light = new THREE.DirectionalLight(0xfff5e8, 2.5);
     light.position.set(3, 4, 5);
     scene.add(light);
+    const fill = new THREE.DirectionalLight(0xe5efff, 0.6);
+    fill.position.set(-2, 1, 1); scene.add(fill);
     const timer = window.setTimeout(() => {
       if (!disposed) { setLoading(false); setError('The model is taking too long to load. Check its URL and connection.'); }
     }, 60000);
@@ -73,6 +82,13 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
       const fit = scale / extent;
       loadedModel.scale.multiplyScalar(fit);
       loadedModel.position.sub(center.multiplyScalar(fit));
+      const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+      loadedModel.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          for (const value of Object.values(material)) if (value instanceof THREE.Texture) { value.anisotropy = anisotropy; value.needsUpdate = true; }
+        }
+      });
       scene.add(loadedModel);
       setError(''); setLoading(false);
     }, undefined, () => {
@@ -84,6 +100,7 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
       const height = container.clientHeight || 300;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2000000 / (width * height)))));
       renderer.setSize(width, height);
     };
     const observer = new ResizeObserver(resize);
@@ -97,6 +114,7 @@ export function ThreeModelViewer({ modelUrl, dishName = 'Dish', className = '', 
       renderer.setAnimationLoop(null);
       controls.dispose();
       if (loadedModel) disposeModel(loadedModel);
+      environmentTarget.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
